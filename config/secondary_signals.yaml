@@ -1,0 +1,63 @@
+enabled: true
+
+profile_name: LARGE
+
+# LARGE signal universe must be explicitly defined.
+symbols:
+  - BTCUSDT
+  - ETHUSDT
+  - BNBUSDT
+  - SOLUSDT
+  - XRPUSDT
+  - ADAUSDT
+  - DOGEUSDT
+  - TRXUSDT
+  - LINKUSDT
+  - AVAXUSDT
+  - DOTUSDT
+  - LTCUSDT
+  - BCHUSDT
+  - ETCUSDT
+  - XLMUSDT
+  - ATOMUSDT
+  - NEARUSDT
+  - UNIUSDT
+  - FILUSDT
+  - OPUSDT
+  - ARBUSDT
+  - SUIUSDT
+  - AAVEUSDT
+  - POLUSDT
+  - EGLDUSDT
+  - ICPUSDT
+  - ALGOUSDT
+  - VETUSDT
+  - SANDUSDT
+
+filters:
+  # For LARGE profile use 1h movement rule instead of 5m move.
+  use_1h_move_filter: true
+  min_1h_move_pct: 1.5
+  min_1m_notional_usd: 100000.0
+
+signal_repeat_guard:
+  # When enabled, suppress repeated LARGE signals on the same symbol
+  # for cooldown_minutes.
+  enabled: true
+  cooldown_minutes: 30
+
+signal_levels:
+  # Telegram-facing default signal distances for LARGE profile.
+  # (Trade execution SL/TP logic remains governed by account settings.)
+  sl_pct: 0.5
+  tp_pcts: [0.8, 1.2, 1.8]
+
+telegram:
+  # false => use this dedicated bot token for LARGE signals.
+  # Any user who sends /start to this bot is auto-subscribed.
+  use_main_channel: false
+  token: "8668054705:AAGhtE1Et7fXy3jfTkWodDmLRFTAHeFO43Q"
+  # Optional static chat/channel id. Keep 0 to disable static target
+  # and broadcast only to /start subscribers.
+  chat_id: 0
+  prefix: "[LARGE]"

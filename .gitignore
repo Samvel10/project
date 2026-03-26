@@ -1,0 +1,52 @@
+# Sensitive credentials
+config/binance_accounts.yaml
+config/paper_accounts.yaml
+config/proxies.py
+pyarmor-regcode-11233.txt
+pyarmor-regfile-11233.zip
+
+# Runtime / logs
+bot.log
+backtest_bot.log
+pyarmor.bug.log
+pyarmor.error.log
+logs/
+*.log
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+.pyc
+
+# Virtual environments
+.venv/
+venv/
+
+# Data / cache (generated at runtime)
+data/market_quality_cache.json
+data/symbol_blocklist.json
+
+# Database
+*.db
+*.sqlite3
+
+# Build / dist
+dist/
+build/
+*.egg-info/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# ready_bot sensitive files
+ready_bot/config/binance_accounts.yaml
+ready_bot/config/paper_accounts.yaml
+ready_bot/config/proxies.py
+
+# Claude settings
+.claude/
+
+# PyArmor
+.pyarmor/

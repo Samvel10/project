@@ -1,0 +1,133 @@
+## =========================
+## QUICK SETUP (HY / EN)
+## =========================
+## Հայերեն (HY)
+## 1) Այս ֆայլում կարգավորում ես bot-ի հիմնական պարամետրերը՝ trading, Telegram, leverage և այլն։
+## 2) Telegram signal-ների համար լրացրու `telegram_token` և `telegram_chat_id`։
+##    - `/start` գրելով քո Telegram բոտին՝ chat-ը կգրանցվի որպես subscriber (ստանալու signal-ներ/տեղեկացումներ)
+##    - `/update` գրելով քո Telegram բոտին՝ կփորձի քաշել ու կիրառել code update (եթե `update.base_url` տրված է)
+## 3) Գործարկում՝ `python3 main.py`
+## 4) Binance account-ների իրական trading կարգավորումները գտնվում են `config/binance_accounts.yaml`-ում։
+##
+## English (EN)
+## 1) This file controls core bot settings: trading, Telegram, leverage, etc.
+## 2) For Telegram signal notifications fill in `telegram_token` and `telegram_chat_id`.
+##    - Send `/start` to the bot to subscribe the chat.
+##    - Send `/update` to the bot to download/apply code updates (requires `update.base_url`).
+## 3) Run: `python3 main.py`
+## 4) Binance account trading settings live in `config/binance_accounts.yaml`.
+
+environment: production
+
+trading:
+  enabled: true
+
+capital:
+  initial: 10000
+  currency: USDT
+
+timeframe:
+  base: "1m"
+  higher:
+    - "5m"
+    - "15m"
+
+session:
+  start: "00:00"
+  end: "23:59"
+
+fees:
+  maker: 0.0002
+  taker: 0.0004
+
+leverage:
+  default: 3
+  max: 10
+
+"api_id": 21913845
+"api_hash": "fa2718af25ca299a9e4d3ec8117b6986"
+
+# Telegram (HY):
+# - `telegram_token` = քո bot token-ը (BotFather)
+# - `telegram_chat_id` = chat/channel ID, որտեղ ուզում ես ստանալ signal-ները
+# Telegram (EN):
+# - `telegram_token` = your bot token (from BotFather)
+# - `telegram_chat_id` = target chat/channel ID where you want signals
+telegram_token: "8504438706:AAGHWK9Yw6VRi_HBG-gtzyo9sp-JDYSuHpY"
+telegram_chat_id: 6143054838
+
+# Optional self-update (HY/EN)
+# Եթե ուզում ես, որ client bot-ը `/update` հրամանով քաշի update ZIP-ը, կարող ես ավելացնել.
+# When enabled, `/update` will download `{base_url}/{INSTANCE_ID}.zip`.
+# update:
+#   base_url: "https://YOUR_DOMAIN_OR_IP/updates"
+#   include_config: false   # HY: update-ում չփոխել config/  EN: do not overwrite config/
+#   include_data: false     # HY: update-ում չփոխել data/    EN: do not overwrite data/
+
+filters:
+  min_5m_move_pct: 2.5
+  min_1h_move_pct: 6.0
+  min_5m_trades: 4000
+  min_1m_notional_usd: 20000.0
+  # Minimum Binance futures 24h quote volume (USDT) required to open REAL trades.
+  # Small profile (altcoins): 20M is sufficient. Large profile coins (BTC/ETH/SOL) have >1B
+  # so they always pass. Bad coins are blocked via symbol_blocklist.json instead.
+  min_24h_quote_volume_usdt: 20000000.0
+
+signal_repeat_guard:
+  # SMALL profile per-symbol signal cooldown.
+  # When enabled, if a signal is generated for a symbol, another signal
+  # for the same symbol is suppressed for small_cooldown_minutes.
+  small_enabled: true
+  small_cooldown_minutes: 60  # FIX: was 30 — reduce overtrading frequency
+
+auto_ml:
+  enabled: true
+  interval_minutes: 60.0
+
+news_guard:
+  enabled: false
+
+notifications:
+  outcome_alerts_enabled: false
+
+control_bot:
+  token: "8553048865:AAFap39HYKAWdLeyzVtSbIxa4MbbpArUObE"
+
+log_bot:
+  token: "8542071357:AAGO0v42FwhEomcrwAcZaR19ZRUvLTEfEU0"
+
+analytics_bot:
+  token: "8344127754:AAE-rDj1nX96rNpxrScFg-UwPV-3vs4HXw8"
+  window_hours: 10.0
+
+accounts_bot:
+  token: "8509107339:AAGJDmcmEhl-na7iGKpnBM8oV6mP_gZ-6VQ"
+
+reports_bot:
+  token: "8239199480:AAFzjysPB314_RGICp1HNcP9X_44Oz_OKgc"
+
+# Backtest Control Bot (HY/EN)
+# Backtest-ի կառdelays համdelays Telegram bot
+# Telegram bot for backtest management and monitoring
+backtest_bot:
+  token: "8692637760:AAE1Ps3mYScTeBsKfQ39VpU9jhCi9-c4kdY"
+  admin_user_ids: [6143054838]
+
+signals:
+  sl_pct: 2.0
+  tp_pcts: [2.0, 4.0, 6.0]
+
+execution:
+  tp_mode: 1
+  auto_sl_tp_enabled: true
+  # Global toggle for dynamic (delayed) entries.
+  # When false, the bot enters immediately at market using the signal price.
+  # When true, accounts that have entry_offset_pct configured will delay
+  # entries until price reaches the offset target or the per-account timeout
+  # expires.
+  dynamic_entry_enabled: true
+
+position_timeout:
+  enabled: true        # When true, close positions that stay open longer than max_hours.
+  max_hours: 4.0        # UPGRADED 2h→4h: gives price more time to reach TP. Fees per 4h ≈ $0.02 (negligible).

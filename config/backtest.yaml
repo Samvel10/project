@@ -1,0 +1,14 @@
+backtest:
+  initial_balance: 10000
+  slippage_model: realistic
+  latency_simulation: true
+
+metrics:
+  sharpe: true
+  sortino: true
+  expectancy: true
+  drawdown: true
+
+report:
+  save: true
+  format: console

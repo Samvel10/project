@@ -1,0 +1,29 @@
+model:
+  type: ensemble
+  base_models:
+    - random_forest
+    - xgboost
+    - lightgbm
+    - catboost
+  objective: direction
+  horizon: 1
+
+training:
+  walk_forward: true
+  train_window: 1000
+  test_window: 200
+  step: 200
+
+features:
+  technical:
+    - rsi
+    - volatility
+    - momentum
+    - acceleration
+  structure:
+    - range_position
+    - trend_strength
+
+thresholds:
+  enter: 0.62
+  exit: 0.45

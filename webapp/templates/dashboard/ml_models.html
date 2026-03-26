@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}ML Models — TradeBot{% endblock %}
+{% block page_title %}ML Models{% endblock %}
+
+{% block content %}
+<div class="grid grid-3">
+  <div class="card stat-card">
+    <div class="stat-label">Total Models</div>
+    <div class="stat-value">{{ total }}</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">Best Score</div>
+    <div class="stat-value text-success">{{ "%.4f"|format(models[0].score) if models else '—' }}</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">Shown (latest)</div>
+    <div class="stat-value">{{ models|length }}</div>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-header">Latest 50 Models (sorted by time)</div>
+  <div class="card-body p-0">
+    <table class="table">
+      <thead>
+        <tr><th>#</th><th>Filename</th><th>Accuracy Score</th><th>Size</th></tr>
+      </thead>
+      <tbody>
+        {% for m in models %}
+        <tr>
+          <td class="text-muted">{{ loop.index }}</td>
+          <td class="small font-mono">{{ m.name }}</td>
+          <td>
+            <div class="score-bar-wrap">
+              <div class="score-bar" style="width:{{ (m.score * 100)|round(0)|int }}%; background:{% if m.score >= 0.8 %}#10b981{% elif m.score >= 0.6 %}#f59e0b{% else %}#ef4444{% endif %}"></div>
+              <span class="score-text">{{ "%.4f"|format(m.score) }}</span>
+            </div>
+          </td>
+          <td class="text-muted small">{{ m.size_kb }} KB</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

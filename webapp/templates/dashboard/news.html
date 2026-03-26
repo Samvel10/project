@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}News — TradeBot{% endblock %}
+{% block page_title %}Market News{% endblock %}
+
+{% block content %}
+<div class="news-toolbar">
+  <div class="news-filter-bar">
+    <button class="news-filter active" data-cat="All" onclick="setFilter('All', this)">All</button>
+    <button class="news-filter" data-cat="Crypto" onclick="setFilter('Crypto', this)">Crypto</button>
+    <button class="news-filter" data-cat="Markets" onclick="setFilter('Markets', this)">Markets</button>
+  </div>
+  <div class="news-toolbar-right">
+    <span id="news-status" class="news-status">Loading…</span>
+    <button class="btn btn-secondary btn-sm" onclick="loadNews()">↻ Refresh</button>
+  </div>
+</div>
+
+<div id="news-grid" class="news-grid">
+  <div class="news-loading">Fetching latest news…</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allArticles = [];
+let activeFilter = 'All';
+let autoTimer = null;
+
+function setFilter(cat, btn) {
+  activeFilter = cat;
+  document.querySelectorAll('.news-filter').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderNews();
+}
+
+function timeAgo(pubStr) {
+  if (!pubStr) return '';
+  try {
+    const d = new Date(pubStr);
+    if (isNaN(d)) return pubStr;
+    const diff = Math.floor((Date.now() - d) / 1000);
+    if (diff < 60)   return diff + 's ago';
+    if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+    return Math.floor(diff/86400) + 'd ago';
+  } catch(e) { return ''; }
+}
+
+function renderNews() {
+  const grid = document.getElementById('news-grid');
+  const filtered = activeFilter === 'All'
+    ? allArticles
+    : allArticles.filter(a => a.category === activeFilter);
+
+  if (!filtered.length) {
+    grid.innerHTML = '<div class="news-empty">No news available</div>';
+    return;
+  }
+
+  grid.innerHTML = filtered.map(a => `
+    <a class="news-card" href="${a.link}" target="_blank" rel="noopener">
+      <div class="news-card-meta">
+        <span class="news-source">${a.source}</span>
+        <span class="news-cat news-cat-${a.category.toLowerCase()}">${a.category}</span>
+        <span class="news-time">${timeAgo(a.pub)}</span>
+      </div>
+      <div class="news-title">${a.title}</div>
+      ${a.desc ? `<div class="news-desc">${a.desc}</div>` : ''}
+    </a>
+  `).join('');
+}
+
+async function loadNews() {
+  const status = document.getElementById('news-status');
+  const grid = document.getElementById('news-grid');
+  status.textContent = 'Fetching…';
+  grid.innerHTML = '<div class="news-loading">Fetching latest news…</div>';
+  try {
+    const r = await fetch('/api/news');
+    const d = await r.json();
+    allArticles = d.articles || [];
+    status.textContent = `${allArticles.length} articles · ${new Date().toLocaleTimeString()}`;
+    renderNews();
+  } catch(e) {
+    status.textContent = 'Failed to load';
+    grid.innerHTML = '<div class="news-empty">Could not fetch news. Check server connectivity.</div>';
+  }
+
+  // Auto-refresh every 5 minutes
+  clearTimeout(autoTimer);
+  autoTimer = setTimeout(loadNews, 5 * 60 * 1000);
+}
+
+loadNews();
+</script>
+{% endblock %}

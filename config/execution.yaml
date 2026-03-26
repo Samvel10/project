@@ -1,0 +1,24 @@
+execution:
+  device: CPU
+
+exchange: binance_futures
+
+order:
+  type: MARKET
+  reduce_only: false
+  time_in_force: GTC
+
+slippage:
+  model: dynamic
+  max_slippage_pct: 0.05
+
+latency:
+  max_ms: 500
+
+proxies:
+  enabled: true
+  use_for_trading: true
+  # Set trading_proxy to a dedicated proxy for ALL signed trading requests.
+  # Format: "http://user:pass@host:port"  or  "socks5://user:pass@host:port"
+  # Leave empty ("") to use random rotation (use_for_trading: true) or no proxy.
+  trading_proxy: ""

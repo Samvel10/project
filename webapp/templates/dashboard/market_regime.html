@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Market Regime — TradeBot{% endblock %}
+{% block page_title %}Market Regime{% endblock %}
+
+{% block content %}
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-header">Current State</div>
+    <div class="card-body">
+      <div class="big-metric">
+        <div class="big-label">Regime</div>
+        <div class="big-value badge badge-{% if state.get('last_regime') == 'ACTIVE' %}success{% elif state.get('last_regime') == 'QUIET' %}warning{% else %}secondary{% endif %} big-badge">
+          {{ state.get('last_regime', 'UNKNOWN') }}
+        </div>
+      </div>
+      {% if state.get('last_score') is not none %}
+      <div class="metric-row mt-3">
+        <span class="metric-label">Composite Score</span>
+        <span class="metric-value">{{ "%.4f"|format(state.last_score) }}</span>
+      </div>
+      {% endif %}
+      <div class="metric-row">
+        <span class="metric-label">BTC Volume Ratio</span>
+        <span class="metric-value">{{ "%.3f"|format(state.get('btc_volume_ratio', 0)) }}x</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">AI Token Vol Ratio</span>
+        <span class="metric-value">{{ "%.3f"|format(state.get('ai_volume_ratio', 0)) }}x</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">AI OI Change</span>
+        <span class="metric-value">{{ "%.3f"|format(state.get('ai_oi_change_pct', 0)) }}%</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">Microstructure</div>
+    <div class="card-body">
+      <div class="metric-row">
+        <span class="metric-label">Avg Spread</span>
+        <span class="metric-value">{{ "%.5f"|format(state.get('avg_spread_pct', 0)) }}%</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Avg Depth (USDT)</span>
+        <span class="metric-value">${{ "{:,.0f}".format(state.get('avg_depth_usdt', 0)) }}</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Slippage (bps)</span>
+        <span class="metric-value">{{ "%.2f"|format(state.get('slippage_bps', 0)) }}</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">BTC Correlation</span>
+        <span class="metric-value">{{ "%.3f"|format(state.get('correlation', 0)) }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-header">Thresholds (from config)</div>
+  <div class="card-body">
+    {% set thresh = config.get('thresholds', {}) %}
+    <div class="grid grid-3">
+      <div class="metric-row"><span class="metric-label">Score Active</span><span class="metric-value">{{ thresh.get('score_active', '—') }}</span></div>
+      <div class="metric-row"><span class="metric-label">Score Quiet</span><span class="metric-value">{{ thresh.get('score_quiet', '—') }}</span></div>
+      <div class="metric-row"><span class="metric-label">Max Spread %</span><span class="metric-value">{{ thresh.get('spread_pct_max', '—') }}</span></div>
+      <div class="metric-row"><span class="metric-label">Min Depth USDT</span><span class="metric-value">${{ "{:,.0f}".format(thresh.get('top5_depth_usdt_min', 0)) }}</span></div>
+      <div class="metric-row"><span class="metric-label">Max Slippage bps</span><span class="metric-value">{{ thresh.get('slippage_bps_max', '—') }}</span></div>
+      <div class="metric-row"><span class="metric-label">Min Correlation</span><span class="metric-value">{{ thresh.get('correlation_min', '—') }}</span></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

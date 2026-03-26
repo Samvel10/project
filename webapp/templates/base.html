@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Trading Dashboard{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <span class="logo-icon">⚡</span>
+        <span class="logo-text">TradeBot</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <span class="nav-label">OVERVIEW</span>
+        <a href="{{ url_for('dashboard.overview') }}" class="nav-item {% if request.endpoint == 'dashboard.overview' %}active{% endif %}">
+          <span class="nav-icon">📊</span> Dashboard
+        </a>
+        <a href="{{ url_for('financial.financial') }}" class="nav-item {% if request.endpoint == 'financial.financial' %}active{% endif %}">
+          <span class="nav-icon">💰</span> Financial
+        </a>
+        <a href="{{ url_for('dashboard.signals_log') }}" class="nav-item {% if request.endpoint == 'dashboard.signals_log' %}active{% endif %}">
+          <span class="nav-icon">📡</span> Signals
+        </a>
+        <a href="{{ url_for('dashboard.news') }}" class="nav-item {% if request.endpoint == 'dashboard.news' %}active{% endif %}">
+          <span class="nav-icon">📰</span> News
+        </a>
+      </div>
+
+      <div class="nav-section">
+        <span class="nav-label">ANALYSIS</span>
+        <a href="{{ url_for('dashboard.market_quality') }}" class="nav-item {% if request.endpoint == 'dashboard.market_quality' %}active{% endif %}">
+          <span class="nav-icon">🔍</span> Market Quality
+        </a>
+        <a href="{{ url_for('dashboard.market_regime') }}" class="nav-item {% if request.endpoint == 'dashboard.market_regime' %}active{% endif %}">
+          <span class="nav-icon">🌊</span> Market Regime
+        </a>
+        <a href="{{ url_for('dashboard.ml_models') }}" class="nav-item {% if request.endpoint == 'dashboard.ml_models' %}active{% endif %}">
+          <span class="nav-icon">🧠</span> ML Models
+        </a>
+      </div>
+
+      {% if user and user.role in ('superadmin', 'admin') %}
+      <div class="nav-section">
+        <span class="nav-label">MANAGEMENT</span>
+        <a href="{{ url_for('dashboard.config_view') }}" class="nav-item {% if request.endpoint == 'dashboard.config_view' %}active{% endif %}">
+          <span class="nav-icon">⚙️</span> Config
+        </a>
+        <a href="{{ url_for('dashboard.blocklist') }}" class="nav-item {% if request.endpoint == 'dashboard.blocklist' %}active{% endif %}">
+          <span class="nav-icon">🚫</span> Blocklist
+        </a>
+        <a href="{{ url_for('dashboard.audit_log') }}" class="nav-item {% if request.endpoint == 'dashboard.audit_log' %}active{% endif %}">
+          <span class="nav-icon">📋</span> Audit Log
+        </a>
+        <a href="{{ url_for('auth.manage_users') }}" class="nav-item {% if request.endpoint == 'auth.manage_users' %}active{% endif %}">
+          <span class="nav-icon">👥</span> Users
+        </a>
+      </div>
+      {% endif %}
+      {% if user and user.role == 'superadmin' %}
+      <div class="nav-section">
+        <span class="nav-label">ADMIN</span>
+        <a href="/admin/control" class="nav-item {% if request.path == '/admin/control' %}active{% endif %}">
+          <span class="nav-icon">🛠️</span> Admin Control
+        </a>
+      </div>
+      {% endif %}
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar">{{ user.username[0].upper() if user else '?' }}</div>
+        <div class="user-details">
+          <div class="user-name">{{ user.username if user }}</div>
+          <div class="user-role badge badge-{{ user.role if user else 'user' }}">{{ user.role if user }}</div>
+        </div>
+      </div>
+      <a href="{{ url_for('auth.logout') }}" class="logout-btn" title="Logout">⏻</a>
+    </div>
+  </aside>
+
+  <!-- Mobile overlay -->
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+  <!-- Main content -->
+  <main class="main-content" id="main-content">
+    <header class="topbar">
+      <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+      <div class="topbar-title">{% block page_title %}Dashboard{% endblock %}</div>
+      <div class="topbar-right">
+        <div id="regime-badge" class="regime-pill">—</div>
+        <a href="{{ url_for('auth.change_password') }}" class="topbar-link">🔑 Password</a>
+      </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, msg in messages %}
+        <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <div class="content-area">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+</div>
+
+<script>
+// ── Sidebar toggle (mobile overlay + desktop collapse) ────────────────────
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  const ov = document.getElementById('sidebar-overlay');
+  const mc = document.getElementById('main-content');
+  if (window.innerWidth <= 768) {
+    const open = sb.classList.toggle('mobile-open');
+    ov.classList.toggle('active', open);
+  } else {
+    const col = sb.classList.toggle('collapsed');
+    mc.classList.toggle('sidebar-collapsed', col);
+  }
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('mobile-open');
+  document.getElementById('sidebar-overlay').classList.remove('active');
+}
+// Close sidebar on nav click (mobile)
+document.querySelectorAll('.nav-item').forEach(a => {
+  a.addEventListener('click', () => { if(window.innerWidth<=768) closeSidebar(); });
+});
+
+// ── Auto-refresh regime badge ─────────────────────────────────────────────
+async function refreshRegime() {
+  try {
+    const r = await fetch('/api/regime');
+    const d = await r.json();
+    const badge = document.getElementById('regime-badge');
+    if (badge && d.last_regime) {
+      const colors = { ACTIVE: '#10b981', QUIET: '#f59e0b', UNKNOWN: '#64748b' };
+      badge.textContent = d.last_regime + (d.last_score != null ? ` (${(d.last_score*100).toFixed(0)}%)` : '');
+      badge.style.background = colors[d.last_regime] || '#64748b';
+    }
+  } catch(e) {}
+}
+refreshRegime();
+setInterval(refreshRegime, 30000);
+</script>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

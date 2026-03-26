@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Audit Log — TradeBot{% endblock %}
+{% block page_title %}Audit Log{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">System Audit Log (last 200)</div>
+  <div class="card-body p-0">
+    <table class="table">
+      <thead>
+        <tr><th>Time</th><th>User</th><th>Action</th><th>Target</th><th>Details</th><th>IP</th></tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td class="small text-muted">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at }}</td>
+          <td><strong>{{ log.username or '—' }}</strong></td>
+          <td><span class="badge badge-secondary">{{ log.action }}</span></td>
+          <td class="small">{{ log.target or '' }}</td>
+          <td class="small text-muted">{{ log.details or '' }}</td>
+          <td class="small text-muted">{{ log.ip_address or '' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center text-muted">No audit entries</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

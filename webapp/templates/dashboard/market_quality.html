@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Market Quality — TradeBot{% endblock %}
+{% block page_title %}Market Quality Analyzer{% endblock %}
+
+{% block content %}
+<div class="grid grid-3">
+  <div class="card stat-card">
+    <div class="stat-label">✅ Good</div>
+    <div class="stat-value text-success">{{ items|selectattr('verdict','eq','GOOD')|list|length }}</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">⚠️ Suspect</div>
+    <div class="stat-value text-warning">{{ items|selectattr('verdict','eq','SUSPECT')|list|length }}</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">🚫 Manipulated</div>
+    <div class="stat-value text-danger">{{ items|selectattr('verdict','eq','MANIPULATED')|list|length }}</div>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-header">
+    Symbol Quality Scores
+    <input type="text" id="search-input" placeholder="Search symbol…" class="search-input float-right" oninput="filterTable()">
+  </div>
+  <div class="card-body p-0">
+    <table class="table sortable" id="quality-table">
+      <thead>
+        <tr>
+          <th>Symbol</th>
+          <th>Verdict</th>
+          <th>Total Score</th>
+          <th>Fibonacci</th>
+          <th>Models</th>
+          <th>Order Book</th>
+          <th>Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr class="quality-row" data-symbol="{{ item.symbol }}" data-verdict="{{ item.verdict }}">
+          <td><strong>{{ item.symbol }}</strong></td>
+          <td>
+            {% if item.verdict == 'GOOD' %}
+              <span class="badge badge-success">✅ GOOD</span>
+            {% elif item.verdict == 'SUSPECT' %}
+              <span class="badge badge-warning">⚠️ SUSPECT</span>
+            {% else %}
+              <span class="badge badge-danger">🚫 MANIPULATED</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="score-bar-wrap">
+              <div class="score-bar" style="width:{{ item.score }}%; background:{% if item.score >= 50 %}#10b981{% elif item.score >= 30 %}#f59e0b{% else %}#ef4444{% endif %}"></div>
+              <span class="score-text">{{ item.score|round(0)|int }}/100</span>
+            </div>
+          </td>
+          <td>{{ item.fib_score|round(0)|int }}/40</td>
+          <td>{{ item.model_score|round(0)|int }}/40</td>
+          <td>{{ item.ob_score|round(0)|int }}/20</td>
+          <td class="small text-muted">{{ item.ob_detail[:60] if item.ob_detail else '' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterTable() {
+  const q = document.getElementById('search-input').value.toUpperCase();
+  document.querySelectorAll('.quality-row').forEach(row => {
+    row.style.display = row.dataset.symbol.includes(q) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

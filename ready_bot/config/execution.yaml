@@ -1,0 +1,17 @@
+exchange: binance_futures
+
+order:
+  type: MARKET
+  reduce_only: false
+  time_in_force: GTC
+
+slippage:
+  model: dynamic
+  max_slippage_pct: 0.05
+
+latency:
+  max_ms: 500
+
+proxies:
+  enabled: true
+  use_for_trading: false

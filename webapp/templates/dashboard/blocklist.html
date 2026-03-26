@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Blocklist — TradeBot{% endblock %}
+{% block page_title %}Symbol Blocklist{% endblock %}
+
+{% block content %}
+<div class="card stat-card" style="max-width:200px">
+  <div class="stat-label">Blocked Symbols</div>
+  <div class="stat-value text-danger" id="bl-count">{{ blocklist|length }}</div>
+</div>
+
+{% if user.role in ('superadmin', 'admin') %}
+<div class="card mt-4">
+  <div class="card-header">Add to Blocklist</div>
+  <div class="card-body" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <input type="text" id="bl-input" class="form-input" style="max-width:320px"
+           placeholder="BTCUSDT, ETHUSDT, …" oninput="this.value=this.value.toUpperCase()">
+    <button class="btn btn-danger" onclick="blAdd()">+ Block</button>
+    <span id="bl-msg" style="font-size:13px;color:var(--text-muted)"></span>
+  </div>
+</div>
+{% endif %}
+
+<div class="card mt-4">
+  <div class="card-header">Blocked Symbols</div>
+  <div class="card-body">
+    <div class="tag-cloud" id="bl-tags">
+      {% for sym in blocklist %}
+      <span class="tag tag-danger" style="display:inline-flex;align-items:center;gap:4px">
+        {{ sym }}
+        {% if user.role in ('superadmin', 'admin') %}
+        <span onclick="blRemove('{{ sym }}')" style="cursor:pointer;opacity:.7;font-size:11px">✕</span>
+        {% endif %}
+      </span>
+      {% else %}
+      <div class="empty-state" id="bl-empty">No symbols blocked</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function blMsg(txt, ok) {
+  const el = document.getElementById('bl-msg');
+  if (el) { el.textContent = txt; el.style.color = ok ? '#10b981' : '#ef4444'; }
+}
+
+function blRefresh(symbols) {
+  const container = document.getElementById('bl-tags');
+  document.getElementById('bl-count').textContent = symbols.length;
+  if (!symbols.length) {
+    container.innerHTML = '<div class="empty-state">No symbols blocked</div>';
+    return;
+  }
+  container.innerHTML = symbols.map(s => `
+    <span class="tag tag-danger" style="display:inline-flex;align-items:center;gap:4px">
+      ${s}
+      <span onclick="blRemove('${s}')" style="cursor:pointer;opacity:.7;font-size:11px">✕</span>
+    </span>`).join('');
+}
+
+async function blAdd() {
+  const val = document.getElementById('bl-input').value.trim();
+  if (!val) return;
+  blMsg('Adding…');
+  try {
+    const r = await fetch('/api/admin/blocklist/add', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({symbols: val})
+    });
+    const d = await r.json();
+    if (d.ok) {
+      blMsg(`Blocked: ${d.added.join(', ')}`, true);
+      document.getElementById('bl-input').value = '';
+      blRefresh(d.total);
+    } else {
+      blMsg(d.error || 'Failed', false);
+    }
+  } catch(e) { blMsg('Request failed', false); }
+}
+
+async function blRemove(sym) {
+  blMsg('Removing…');
+  try {
+    const r = await fetch('/api/admin/blocklist/remove', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({symbol: sym})
+    });
+    const d = await r.json();
+    if (d.ok) {
+      blMsg(`Removed: ${sym}`, true);
+      blRefresh(d.total);
+    } else {
+      blMsg(d.error || 'Failed', false);
+    }
+  } catch(e) { blMsg('Request failed', false); }
+}
+
+document.getElementById('bl-input')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') blAdd();
+});
+</script>
+{% endblock %}

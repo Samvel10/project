@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block title %}Signals — TradeBot{% endblock %}
+{% block page_title %}Signal Log{% endblock %}
+
+{% block content %}
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('large', this)">Large Products <span class="badge badge-info ml-1">{{ signals_large|length }}</span></button>
+  <button class="tab-btn" onclick="switchTab('small', this)">Small Products <span class="badge badge-info ml-1">{{ signals_small|length }}</span></button>
+</div>
+
+{% macro signal_list(signals, tab_id) %}
+<div id="tab-{{ tab_id }}" class="tab-panel mt-4" {% if tab_id != 'large' %}style="display:none"{% endif %}>
+  <div class="card">
+    <div class="card-header">
+      {% if tab_id == 'large' %}Large{% else %}Small{% endif %} Products — Signal History
+      <input type="text" id="search-{{ tab_id }}" placeholder="Filter symbol…" class="search-input float-right" oninput="filterSignals('{{ tab_id }}')">
+    </div>
+    <div class="card-body p-0">
+      <div class="signal-list" id="list-{{ tab_id }}">
+        {% for s in signals %}
+        {% set entry = s.get('entry','') | float %}
+        {% set sl    = s.get('sl','')    | float %}
+        {% set tp1   = s.get('tp1','')   | float %}
+        {% set tp2   = s.get('tp2','')   | float %}
+        {% set tp3   = s.get('tp3','')   | float %}
+        {% set conf  = s.get('confidence','') | float %}
+        {% set isBuy = s.get('direction') == 'BUY' %}
+        <div class="signal-card" data-symbol="{{ s.get('symbol','') }}"
+             onclick="openSignal(this)"
+             data-signal='{{ s | tojson }}'>
+          <div class="signal-card-main">
+            <div class="signal-card-left">
+              <span class="signal-symbol">{{ s.get('symbol','—').replace('USDT','/USDT') }}</span>
+              <span class="badge {% if isBuy %}badge-success{% else %}badge-danger{% endif %} signal-dir-badge">
+                {{ 'Long 🟢' if isBuy else 'Short 🔴' }}
+              </span>
+            </div>
+            <div class="signal-card-center">
+              <div class="signal-prices">
+                <span class="sig-label">Entry</span>
+                <span class="sig-val">{{ "%.4g"|format(entry) if entry else '—' }}</span>
+                <span class="sig-sep">|</span>
+                <span class="sig-label">SL</span>
+                <span class="sig-val {% if isBuy %}text-danger{% else %}text-success{% endif %}">
+                  {{ "%.4g"|format(sl) if sl else '—' }}
+                  {% if entry and sl %}
+                  <small class="sig-pct">({{ "%.1f"|format(((sl - entry) / entry * 100) | abs) }}%)</small>
+                  {% endif %}
+                </span>
+                <span class="sig-sep">|</span>
+                <span class="sig-label">TP1</span>
+                <span class="sig-val {% if isBuy %}text-success{% else %}text-danger{% endif %}">
+                  {{ "%.4g"|format(tp1) if tp1 else '—' }}
+                  {% if entry and tp1 %}
+                  <small class="sig-pct">(+{{ "%.1f"|format(((tp1 - entry) / entry * 100) | abs) }}%)</small>
+                  {% endif %}
+                </span>
+              </div>
+            </div>
+            <div class="signal-card-right">
+              <span class="signal-time">{{ s.get('timestamp_ms','') | fmt_ts }}</span>
+              <span class="signal-conf {% if conf >= 0.7 %}conf-high{% elif conf >= 0.5 %}conf-med{% else %}conf-low{% endif %}">
+                {{ "%.0f"|format(conf * 100) }}% conf
+              </span>
+            </div>
+          </div>
+        </div>
+        {% else %}
+        <div style="padding:40px;text-align:center;color:var(--text-muted)">No signals yet</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
+{{ signal_list(signals_large, 'large') }}
+{{ signal_list(signals_small, 'small') }}
+
+<!-- Signal detail modal -->
+<div id="signal-modal" class="modal" style="display:none">
+  <div class="modal-backdrop" onclick="closeSignal()"></div>
+  <div class="modal-box signal-modal-box">
+    <div class="modal-header" id="modal-title">Signal Detail</div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeSignal()">Close</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).style.display = '';
+  btn.classList.add('active');
+}
+
+function filterSignals(name) {
+  const q = document.getElementById('search-' + name).value.toUpperCase();
+  document.querySelectorAll('#list-' + name + ' .signal-card').forEach(c => {
+    c.style.display = c.dataset.symbol.toUpperCase().includes(q) ? '' : 'none';
+  });
+}
+
+function fmtPrice(v) {
+  if (!v || isNaN(v)) return '—';
+  v = parseFloat(v);
+  if (v >= 1000) return v.toLocaleString(undefined, {maximumFractionDigits: 2});
+  if (v >= 1)    return v.toFixed(4);
+  return v.toPrecision(4);
+}
+
+function distPct(entry, price) {
+  if (!entry || !price || isNaN(entry) || isNaN(price)) return '';
+  return (Math.abs((price - entry) / entry * 100)).toFixed(2) + '%';
+}
+
+function openSignal(el) {
+  const s = JSON.parse(el.dataset.signal);
+  const isBuy   = s.direction === 'BUY';
+  const entry   = parseFloat(s.entry)  || 0;
+  const sl      = parseFloat(s.sl)     || 0;
+  const tp1     = parseFloat(s.tp1)    || 0;
+  const tp2     = parseFloat(s.tp2)    || 0;
+  const tp3     = parseFloat(s.tp3)    || 0;
+  const conf    = parseFloat(s.confidence) || 0;
+  const sym     = (s.symbol || '').replace('USDT', '/USDT');
+  const dir     = isBuy ? 'Long 🟢' : 'Short 🔴';
+
+  document.getElementById('modal-title').innerHTML =
+    `<span style="font-size:16px;font-weight:700">${sym}</span> &nbsp; <span class="badge ${isBuy ? 'badge-success' : 'badge-danger'}">${dir}</span>`;
+
+  const slPct  = sl    ? `<span class="text-muted" style="font-size:11px"> (${distPct(entry, sl)} SL)</span>` : '';
+  const tp1Pct = tp1   ? `<span class="text-muted" style="font-size:11px"> (+${distPct(entry, tp1)})</span>` : '';
+  const tp2Pct = tp2   ? `<span class="text-muted" style="font-size:11px"> (+${distPct(entry, tp2)})</span>` : '';
+  const tp3Pct = tp3   ? `<span class="text-muted" style="font-size:11px"> (+${distPct(entry, tp3)})</span>` : '';
+
+  // Format time
+  let timeStr = '—';
+  try {
+    const ts = parseInt(s.timestamp_ms);
+    if (ts > 0) timeStr = new Date(ts).toLocaleString();
+  } catch(e) {}
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="signal-detail-grid">
+      <div class="detail-section">
+        <div class="detail-row"><span class="detail-label">Time</span><span class="detail-val">${timeStr}</span></div>
+        <div class="detail-row"><span class="detail-label">Interval</span><span class="detail-val">${s.interval || '—'}</span></div>
+        <div class="detail-row highlight"><span class="detail-label">Entry</span><span class="detail-val strong">${fmtPrice(entry)}</span></div>
+        <div class="detail-row ${isBuy ? 'danger-row' : 'success-row'}">
+          <span class="detail-label">Stop Loss</span>
+          <span class="detail-val">${fmtPrice(sl)} ${slPct}</span>
+        </div>
+        <div class="detail-divider"></div>
+        <div class="detail-row ${isBuy ? 'success-row' : 'danger-row'}">
+          <span class="detail-label">Target 1</span>
+          <span class="detail-val">${fmtPrice(tp1)} ${tp1Pct}</span>
+        </div>
+        <div class="detail-row ${isBuy ? 'success-row' : 'danger-row'}">
+          <span class="detail-label">Target 2</span>
+          <span class="detail-val">${fmtPrice(tp2)} ${tp2Pct}</span>
+        </div>
+        <div class="detail-row ${isBuy ? 'success-row' : 'danger-row'}">
+          <span class="detail-label">Target 3</span>
+          <span class="detail-val">${fmtPrice(tp3)} ${tp3Pct}</span>
+        </div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-row"><span class="detail-label">Confidence</span>
+          <span class="detail-val signal-conf ${conf>=0.7?'conf-high':conf>=0.5?'conf-med':'conf-low'}" style="font-size:15px;font-weight:700">${(conf*100).toFixed(1)}%</span>
+        </div>
+        <div class="detail-row"><span class="detail-label">RSI</span><span class="detail-val">${s.rsi ? parseFloat(s.rsi).toFixed(1) : '—'}</span></div>
+        <div class="detail-row"><span class="detail-label">Structure</span><span class="detail-val">${s.structure || '—'}</span></div>
+        <div class="detail-row"><span class="detail-label">Fib Direction</span><span class="detail-val">${s.fib_direction || '—'}</span></div>
+        <div class="detail-row"><span class="detail-label">Range Type</span><span class="detail-val">${s.range_type || '—'}</span></div>
+        <div class="detail-row"><span class="detail-label">Momentum</span><span class="detail-val">${s.momentum ? parseFloat(s.momentum).toFixed(4) : '—'}</span></div>
+        <div class="detail-row"><span class="detail-label">Volatility</span><span class="detail-val">${s.volatility ? parseFloat(s.volatility).toFixed(4) : '—'}</span></div>
+        <div class="detail-row"><span class="detail-label">ATR</span><span class="detail-val">${s.atr ? parseFloat(s.atr).toFixed(6) : '—'}</span></div>
+      </div>
+    </div>`;
+
+  document.getElementById('signal-modal').style.display = 'flex';
+}
+
+function closeSignal() {
+  document.getElementById('signal-modal').style.display = 'none';
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSignal(); });
+</script>
+{% endblock %}

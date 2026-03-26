@@ -1,0 +1,138 @@
+{
+  "instances": {
+    "UNSET_INSTANCE_ID": {
+      "id": "UNSET_INSTANCE_ID",
+      "status": "active",
+      "created_at": "2026-01-29T11:10:04.496526+00:00",
+      "last_seen": "2026-03-26T19:33:20.442672+00:00",
+      "last_host": "b1661bfa66a3",
+      "last_client": "main.py",
+      "last_cwd": "/var/www/html/new_example_bot",
+      "last_pid": 593,
+      "run_count": 189,
+      "hosts": {
+        "samo-Vivobook-ASUSLaptop-X1605VA-X1605VA": {
+          "first_seen": "2026-01-29T11:10:04.496566+00:00",
+          "last_seen": "2026-03-24T08:33:53.501625+00:00"
+        },
+        "b1661bfa66a3": {
+          "first_seen": "2026-03-25T13:44:26.138378+00:00",
+          "last_seen": "2026-03-26T19:33:20.442672+00:00"
+        }
+      },
+      "status_updated_at": "2026-03-25T13:50:00.000000+00:00",
+      "blocked_reason": "multi_host_allowed",
+      "multi_host_allowed": true
+    },
+    "test_instance_123": {
+      "id": "test_instance_123",
+      "status": "active",
+      "created_at": "2026-01-29T12:32:36.825998+00:00",
+      "last_seen": null,
+      "last_host": null,
+      "last_client": "admin_factory",
+      "last_cwd": null,
+      "last_pid": null,
+      "run_count": 0,
+      "hosts": {},
+      "label": "test",
+      "status_updated_at": "2026-01-29T12:32:36.826343+00:00"
+    },
+    "b689495a81f14539b0bc2b853840ce45": {
+      "id": "b689495a81f14539b0bc2b853840ce45",
+      "status": "active",
+      "created_at": "2026-01-29T13:45:33.139761+00:00",
+      "last_seen": null,
+      "last_host": null,
+      "last_client": "admin_factory",
+      "last_cwd": null,
+      "last_pid": null,
+      "run_count": 0,
+      "hosts": {},
+      "label": "client_1769694333",
+      "meta": {
+        "requested_by_chat_id": 6143054838
+      }
+    },
+    "8771b53985a2485c8c8706c3b085c990": {
+      "id": "8771b53985a2485c8c8706c3b085c990",
+      "status": "active",
+      "created_at": "2026-01-29T13:49:54.131513+00:00",
+      "last_seen": null,
+      "last_host": null,
+      "last_client": "admin_factory",
+      "last_cwd": null,
+      "last_pid": null,
+      "run_count": 0,
+      "hosts": {},
+      "label": "client_1769694594",
+      "meta": {
+        "requested_by_chat_id": 6143054838
+      }
+    },
+    "83d842ecb0e5446a96acf11eebb6f1df": {
+      "id": "83d842ecb0e5446a96acf11eebb6f1df",
+      "status": "active",
+      "created_at": "2026-01-29T14:01:12.293610+00:00",
+      "last_seen": null,
+      "last_host": null,
+      "last_client": "admin_factory",
+      "last_cwd": null,
+      "last_pid": null,
+      "run_count": 0,
+      "hosts": {},
+      "label": "client_1769695272",
+      "meta": {
+        "requested_by_chat_id": 6143054838
+      }
+    },
+    "77535e656f72498b8f8ca862534fe009": {
+      "id": "77535e656f72498b8f8ca862534fe009",
+      "status": "active",
+      "created_at": "2026-01-29T14:16:30.714304+00:00",
+      "last_seen": null,
+      "last_host": null,
+      "last_client": "admin_factory",
+      "last_cwd": null,
+      "last_pid": null,
+      "run_count": 0,
+      "hosts": {},
+      "label": "client_1769696190",
+      "meta": {
+        "requested_by_chat_id": 6143054838
+      }
+    },
+    "dbf94c3d72314de5a9f2caa60e46dff2": {
+      "id": "dbf94c3d72314de5a9f2caa60e46dff2",
+      "status": "active",
+      "created_at": "2026-01-29T14:24:59.071966+00:00",
+      "last_seen": null,
+      "last_host": null,
+      "last_client": "admin_factory",
+      "last_cwd": null,
+      "last_pid": null,
+      "run_count": 0,
+      "hosts": {},
+      "label": "client_1769696699",
+      "meta": {
+        "requested_by_chat_id": 6143054838
+      }
+    },
+    "67269ec45ddd427b81359bf8d230dccf": {
+      "id": "67269ec45ddd427b81359bf8d230dccf",
+      "status": "active",
+      "created_at": "2026-01-29T14:26:06.062559+00:00",
+      "last_seen": null,
+      "last_host": null,
+      "last_client": "admin_factory",
+      "last_cwd": null,
+      "last_pid": null,
+      "run_count": 0,
+      "hosts": {},
+      "label": "client_1769696766",
+      "meta": {
+        "requested_by_chat_id": 6143054838
+      }
+    }
+  }
+}

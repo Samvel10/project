@@ -1,0 +1,366 @@
+{% extends "base.html" %}
+{% block title %}Admin Control — TradeBot{% endblock %}
+{% block page_title %}Admin Control Panel{% endblock %}
+
+{% block content %}
+<div class="grid grid-2" style="gap:1.5rem">
+
+  <!-- A) Bot Process Control -->
+  <div class="card">
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Bot Process Control</span>
+      <span id="bot-status-badge" class="badge badge-secondary">Loading...</span>
+    </div>
+    <div class="card-body">
+      <div style="margin-bottom:1rem">
+        <span class="text-muted small">PID: </span>
+        <span id="bot-pid" class="font-mono small">—</span>
+      </div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+        <button id="btn-start" class="btn btn-success" onclick="botAction('start')">▶ Start</button>
+        <button id="btn-stop" class="btn btn-danger" onclick="botAction('stop')">■ Stop</button>
+        <button id="btn-restart" class="btn btn-warning" onclick="botAction('restart')">↺ Restart</button>
+      </div>
+      <div id="bot-action-msg" class="small mt-2" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- B) Coin Blocklist -->
+  <div class="card">
+    <div class="card-header">Coin Blocklist</div>
+    <div class="card-body">
+      <div id="blocklist-badges" style="display:flex;flex-wrap:wrap;gap:0.4rem;min-height:2rem;margin-bottom:1rem">
+        <span class="text-muted small">Loading...</span>
+      </div>
+      <div style="display:flex;gap:0.5rem">
+        <input type="text" id="blocklist-input" class="form-input" placeholder="BTC,ETH,SOL" style="flex:1">
+        <button class="btn btn-primary" onclick="addBlocklistSymbols()">Block</button>
+      </div>
+      <div id="blocklist-msg" class="small mt-2" style="display:none"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- C) Instances -->
+<div class="card mt-4">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+    <span>Instances</span>
+    <button class="btn btn-xs btn-secondary" onclick="loadInstances()">↻ Refresh</button>
+  </div>
+  <div class="card-body p-0">
+    <div style="overflow-x:auto">
+      <table class="table" id="instances-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Label</th>
+            <th>Status</th>
+            <th>Run Count</th>
+            <th>Last Client</th>
+            <th>Last Host</th>
+            <th>Last Seen</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="instances-tbody">
+          <tr><td colspan="8" class="text-center text-muted">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- D) Proxy Status -->
+<div class="card mt-4">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+    <span>Proxy Status</span>
+    <button class="btn btn-xs btn-secondary" onclick="loadProxies()">↻ Refresh</button>
+  </div>
+  <div class="card-body">
+    <div id="proxy-content">
+      <span class="text-muted small">Click Refresh to load proxy status...</span>
+    </div>
+  </div>
+</div>
+
+<!-- E) News Guard Status -->
+<div class="card mt-4">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+    <span>News Guard Status</span>
+    <button class="btn btn-xs btn-secondary" onclick="loadNews()">↻ Refresh</button>
+  </div>
+  <div class="card-body">
+    <div id="news-content">
+      <span class="text-muted small">Click Refresh to load news guard status...</span>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ─── Bot Status ───────────────────────────────────────────────────────────────
+async function refreshBotStatus() {
+  try {
+    const r = await fetch('/api/admin/bot/status');
+    const d = await r.json();
+    const badge = document.getElementById('bot-status-badge');
+    const pidEl = document.getElementById('bot-pid');
+    if (d.running) {
+      badge.textContent = 'RUNNING';
+      badge.className = 'badge badge-active';
+    } else {
+      badge.textContent = 'STOPPED';
+      badge.className = 'badge badge-danger';
+    }
+    pidEl.textContent = d.pid || '—';
+  } catch(e) {
+    document.getElementById('bot-status-badge').textContent = 'ERROR';
+  }
+}
+
+async function botAction(action) {
+  const msgEl = document.getElementById('bot-action-msg');
+  msgEl.style.display = 'none';
+  const btns = ['btn-start','btn-stop','btn-restart'].map(id => document.getElementById(id));
+  btns.forEach(b => b && (b.disabled = true));
+  try {
+    const r = await fetch(`/api/admin/bot/${action}`, {method:'POST', headers:{'Content-Type':'application/json'}});
+    const d = await r.json();
+    msgEl.textContent = d.message || (d.ok ? 'Success' : (d.error || 'Failed'));
+    msgEl.style.display = 'block';
+    msgEl.style.color = d.ok ? '#10b981' : '#ef4444';
+    setTimeout(refreshBotStatus, 1500);
+  } catch(e) {
+    msgEl.textContent = 'Request failed: ' + e.message;
+    msgEl.style.display = 'block';
+    msgEl.style.color = '#ef4444';
+  } finally {
+    btns.forEach(b => b && (b.disabled = false));
+  }
+}
+
+// Auto-refresh bot status every 5s
+refreshBotStatus();
+setInterval(refreshBotStatus, 5000);
+
+
+// ─── Blocklist ────────────────────────────────────────────────────────────────
+async function loadBlocklist() {
+  try {
+    const r = await fetch('/api/admin/blocklist');
+    const d = await r.json();
+    renderBlocklistBadges(d.symbols || []);
+  } catch(e) {
+    document.getElementById('blocklist-badges').innerHTML = '<span class="text-muted small">Error loading blocklist</span>';
+  }
+}
+
+function renderBlocklistBadges(symbols) {
+  const container = document.getElementById('blocklist-badges');
+  if (!symbols.length) {
+    container.innerHTML = '<span class="text-muted small">No blocked coins</span>';
+    return;
+  }
+  container.innerHTML = symbols.map(s =>
+    `<span class="badge badge-danger" style="cursor:default;display:inline-flex;align-items:center;gap:0.25rem">
+      ${escHtml(s)}
+      <button onclick="removeBlocklistSymbol('${escHtml(s)}')" style="background:none;border:none;color:inherit;cursor:pointer;padding:0;line-height:1;font-size:0.85em" title="Unblock">✕</button>
+    </span>`
+  ).join('');
+}
+
+async function addBlocklistSymbols() {
+  const input = document.getElementById('blocklist-input');
+  const symbols = input.value.trim();
+  const msgEl = document.getElementById('blocklist-msg');
+  if (!symbols) return;
+  msgEl.style.display = 'none';
+  try {
+    const r = await fetch('/api/admin/blocklist/add', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({symbols})
+    });
+    const d = await r.json();
+    if (d.ok) {
+      input.value = '';
+      renderBlocklistBadges(d.total || []);
+      msgEl.textContent = `Added: ${(d.added||[]).join(', ')}`;
+      msgEl.style.color = '#10b981';
+    } else {
+      msgEl.textContent = d.error || 'Failed';
+      msgEl.style.color = '#ef4444';
+    }
+    msgEl.style.display = 'block';
+  } catch(e) {
+    msgEl.textContent = 'Request failed';
+    msgEl.style.display = 'block';
+    msgEl.style.color = '#ef4444';
+  }
+}
+
+async function removeBlocklistSymbol(symbol) {
+  const msgEl = document.getElementById('blocklist-msg');
+  msgEl.style.display = 'none';
+  try {
+    const r = await fetch('/api/admin/blocklist/remove', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({symbol})
+    });
+    const d = await r.json();
+    if (d.ok) {
+      renderBlocklistBadges(d.total || []);
+      msgEl.textContent = `Removed: ${symbol}`;
+      msgEl.style.color = '#10b981';
+    } else {
+      msgEl.textContent = d.error || 'Failed';
+      msgEl.style.color = '#ef4444';
+    }
+    msgEl.style.display = 'block';
+  } catch(e) {
+    msgEl.textContent = 'Request failed';
+    msgEl.style.display = 'block';
+    msgEl.style.color = '#ef4444';
+  }
+}
+
+loadBlocklist();
+
+
+// ─── Instances ────────────────────────────────────────────────────────────────
+const STATUS_BADGE = {
+  active:  'badge-active',
+  paused:  'badge-warning',
+  blocked: 'badge-danger',
+  deleted: 'badge-secondary',
+};
+
+async function loadInstances() {
+  const tbody = document.getElementById('instances-tbody');
+  tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Loading...</td></tr>';
+  try {
+    const r = await fetch('/api/admin/instances');
+    const d = await r.json();
+    const insts = d.instances || [];
+    if (!insts.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No instances</td></tr>';
+      return;
+    }
+    tbody.innerHTML = insts.map(inst => {
+      const badgeClass = STATUS_BADGE[inst.status] || 'badge-secondary';
+      const lastSeen = inst.last_seen ? inst.last_seen.split('T')[0] + ' ' + (inst.last_seen.split('T')[1]||'').slice(0,8) : '—';
+      return `<tr>
+        <td class="font-mono small" title="${escHtml(inst.id)}">${escHtml(inst.id_short)}</td>
+        <td class="small">${escHtml(inst.label)}</td>
+        <td><span class="badge ${badgeClass}">${escHtml(inst.status)}</span></td>
+        <td class="small text-center">${inst.run_count}</td>
+        <td class="small">${escHtml(inst.last_client)}</td>
+        <td class="small">${escHtml(inst.last_host)}</td>
+        <td class="small text-muted">${escHtml(lastSeen)}</td>
+        <td>
+          <div style="display:flex;gap:0.25rem;flex-wrap:wrap">
+            ${inst.status !== 'blocked' ? `<button class="btn btn-xs btn-danger" onclick="instanceAction('${escHtml(inst.id)}','block')">Block</button>` : ''}
+            ${inst.status !== 'active' ? `<button class="btn btn-xs btn-success" onclick="instanceAction('${escHtml(inst.id)}','unblock')">Unblock</button>` : ''}
+            ${inst.status !== 'deleted' ? `<button class="btn btn-xs btn-secondary" onclick="instanceAction('${escHtml(inst.id)}','delete')">Delete</button>` : ''}
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Error: ${escHtml(e.message)}</td></tr>`;
+  }
+}
+
+async function instanceAction(instId, action) {
+  try {
+    const r = await fetch(`/api/admin/instances/${encodeURIComponent(instId)}/action`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action})
+    });
+    const d = await r.json();
+    if (d.ok) {
+      loadInstances();
+    } else {
+      alert('Error: ' + (d.error || 'Failed'));
+    }
+  } catch(e) {
+    alert('Request failed: ' + e.message);
+  }
+}
+
+loadInstances();
+
+
+// ─── Proxies ──────────────────────────────────────────────────────────────────
+async function loadProxies() {
+  const el = document.getElementById('proxy-content');
+  el.innerHTML = '<span class="text-muted small">Loading (may take up to 15s)...</span>';
+  try {
+    const r = await fetch('/api/admin/proxies');
+    const d = await r.json();
+    let html = '';
+    if (d.error) {
+      html += `<div class="alert alert-danger small">Error: ${escHtml(d.error)}</div>`;
+    }
+    html += `<div style="display:flex;gap:2rem;flex-wrap:wrap">
+      <div>
+        <div class="text-muted small mb-1">Working Proxies (${(d.working||[]).length})</div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.3rem">
+          ${(d.working||[]).map(p=>`<span class="badge badge-active font-mono" style="font-size:0.7rem">${escHtml(String(p))}</span>`).join('') || '<span class="text-muted small">None</span>'}
+        </div>
+      </div>
+      <div>
+        <div class="text-muted small mb-1">Blocked Proxies (${(d.blocked||[]).length})</div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.3rem">
+          ${(d.blocked||[]).map(p=>`<span class="badge badge-danger font-mono" style="font-size:0.7rem">${escHtml(String(p))}</span>`).join('') || '<span class="text-muted small">None</span>'}
+        </div>
+      </div>
+    </div>`;
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = `<span class="text-danger small">Error: ${escHtml(e.message)}</span>`;
+  }
+}
+
+
+// ─── News Guard ───────────────────────────────────────────────────────────────
+async function loadNews() {
+  const el = document.getElementById('news-content');
+  el.innerHTML = '<span class="text-muted small">Loading...</span>';
+  try {
+    const r = await fetch('/api/admin/news');
+    const d = await r.json();
+    let html = `<div class="mb-2"><span class="badge ${d.enabled ? 'badge-active' : 'badge-secondary'}">${d.enabled ? 'Enabled' : 'Disabled'}</span></div>`;
+    if (d.error) {
+      html += `<div class="alert alert-danger small">Error: ${escHtml(d.error)}</div>`;
+    }
+    const events = d.events || [];
+    if (events.length) {
+      html += `<div class="text-muted small mb-1">Active News Events (${events.length}):</div>`;
+      html += `<div style="max-height:200px;overflow-y:auto">`;
+      events.forEach(ev => {
+        const evStr = typeof ev === 'object' ? JSON.stringify(ev) : String(ev);
+        html += `<div class="small font-mono" style="padding:0.2rem 0;border-bottom:1px solid var(--border)">${escHtml(evStr)}</div>`;
+      });
+      html += `</div>`;
+    } else {
+      html += `<span class="text-muted small">No active news events</span>`;
+    }
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = `<span class="text-danger small">Error: ${escHtml(e.message)}</span>`;
+  }
+}
+
+
+// ─── Utils ────────────────────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}

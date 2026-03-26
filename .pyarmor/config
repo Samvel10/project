@@ -1,0 +1,4 @@
+[project]
+src = /var/www/html/new_example_bot
+scripts = main.py
+

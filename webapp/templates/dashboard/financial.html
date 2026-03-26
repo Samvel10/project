@@ -1,0 +1,687 @@
+{% extends "base.html" %}
+{% block title %}Financial — TradeBot{% endblock %}
+{% block page_title %}Financial{% endblock %}
+
+{% block content %}
+<div class="fin-layout">
+
+  <!-- ── LEFT sidebar ── -->
+  <div class="fin-sidebar">
+    <div class="fin-accounts">
+      {% for acc in accounts %}
+      <div class="fin-acc-tab{% if loop.first %} active{% endif %}"
+           data-idx="{{ acc.index }}" onclick="selectAccount({{ acc.index }})">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
+          <span style="font-weight:600;font-size:13px">{{ acc.name }}</span>
+          <span class="badge {% if acc.trade_enabled %}badge-success{% else %}badge-secondary{% endif %}" style="font-size:10px">{% if acc.trade_enabled %}LIVE{% else %}OFF{% endif %}</span>
+        </div>
+        <div id="acc-bal-{{ acc.index }}" style="font-size:11px;color:var(--text-muted);margin-top:3px">Loading…</div>
+      </div>
+      {% endfor %}
+    </div>
+    <div id="sym-search-wrap" style="padding:8px;border-bottom:1px solid var(--border)">
+      <input id="sym-search" class="form-input" placeholder="🔍 Search symbol…"
+             oninput="searchSymbols(this.value)" autocomplete="off" style="font-size:12px;flex:1">
+      <button id="sym-toggle-btn" class="btn btn-xs btn-secondary" style="display:none;flex-shrink:0" onclick="toggleSymList()">▼</button>
+    </div>
+    <div id="sym-list" style="flex:1;overflow-y:auto"></div>
+  </div>
+
+  <!-- ── RIGHT ── -->
+  <div class="fin-main">
+
+    <!-- Price bar -->
+    <div class="fin-bar">
+      <div style="min-width:110px">
+        <div id="bar-sym" style="font-size:16px;font-weight:700">BTCUSDT</div>
+        <div id="bar-idx" style="font-size:10px;color:var(--text-muted)">Index —</div>
+      </div>
+      <div style="min-width:100px">
+        <div id="bar-price" style="font-size:22px;font-weight:700;color:#10b981;font-variant-numeric:tabular-nums" data-prev="0">—</div>
+        <div id="bar-chg" style="font-size:12px;font-weight:600">—</div>
+      </div>
+      <div class="bstat"><div class="blbl">Mark</div><div id="bar-mark" class="bval">—</div></div>
+      <div class="bstat hide-xs"><div class="blbl">24h High</div><div id="bar-high" class="bval">—</div></div>
+      <div class="bstat hide-xs"><div class="blbl">24h Low</div><div id="bar-low" class="bval">—</div></div>
+      <div class="bstat hide-xs"><div class="blbl">24h Vol (USDT)</div><div id="bar-vol" class="bval">—</div></div>
+      <div class="bstat"><div class="blbl">Funding</div><div id="bar-fund" class="bval">—</div></div>
+    </div>
+
+    <!-- Chart -->
+    <div class="card" style="padding:0;overflow:hidden;flex-shrink:0">
+      <div style="padding:7px 10px;border-bottom:1px solid var(--border)">
+        <div class="ivb-wrap">
+          {% for iv in ['1m','3m','5m','15m','30m','1h','4h','1d'] %}
+          <button class="ivb{% if iv=='1m' %} active{% endif %}" data-iv="{{ iv }}" onclick="setIv('{{ iv }}')">{{ iv }}</button>
+          {% endfor %}
+        </div>
+      </div>
+      <div id="fin-chart" style="height:400px;background:#0f172a"></div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="card" style="padding:0;flex-shrink:0">
+      <div style="display:flex;border-bottom:1px solid var(--border);overflow-x:auto">
+        <button class="ftab active" data-tab="positions" onclick="switchTab(this)">
+          Open Positions <span id="bp" class="tbadge"></span>
+        </button>
+        <button class="ftab" data-tab="orders" onclick="switchTab(this)">
+          Open Orders <span id="bo" class="tbadge"></span>
+        </button>
+        <button class="ftab" data-tab="pnl" onclick="switchTab(this)">Position History</button>
+        <button class="ftab" data-tab="trades" onclick="switchTab(this)">Trade History</button>
+        <button class="ftab" data-tab="income" onclick="switchTab(this)">Transactions</button>
+        <button class="ftab" data-tab="assets" onclick="switchTab(this)">Assets</button>
+      </div>
+
+      <!-- Positions -->
+      <div id="tab-positions" class="fpane active">
+        <div class="empty-state" style="padding:20px">Select an account</div>
+      </div>
+
+      <!-- Orders -->
+      <div id="tab-orders" class="fpane">
+        <div class="empty-state" style="padding:20px">Select an account</div>
+      </div>
+
+      <!-- Position History -->
+      <div id="tab-pnl" class="fpane">
+        <div class="pnl-filter-bar" style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border);flex-wrap:wrap">
+          <label style="font-size:12px;color:var(--text-muted)">From</label>
+          <input type="date" id="pnl-from" class="form-input" style="width:140px;font-size:12px;padding:4px 8px">
+          <label style="font-size:12px;color:var(--text-muted)">To</label>
+          <input type="date" id="pnl-to" class="form-input" style="width:140px;font-size:12px;padding:4px 8px">
+          <input type="text" id="pnl-sym" class="form-input" placeholder="Symbol (optional)" style="width:150px;font-size:12px;padding:4px 8px" oninput="this.value=this.value.toUpperCase()">
+          <button class="btn btn-sm btn-primary" onclick="loadPnl()">Search</button>
+          <button class="btn btn-sm btn-secondary" onclick="clearPnlFilter()">All</button>
+          <span id="pnl-total" style="font-size:13px;font-weight:600"></span>
+        </div>
+        <div id="pnl-body"><div class="empty-state" style="padding:20px">Select an account</div></div>
+      </div>
+
+      <!-- Trade History -->
+      <div id="tab-trades" class="fpane">
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border);flex-wrap:wrap">
+          <span style="font-size:12px;color:var(--text-muted)">Symbol:</span>
+          <strong id="trades-sym-label" style="font-size:13px">{{ '—' }}</strong>
+          <span style="font-size:11px;color:var(--text-muted)">(click a symbol or position to load)</span>
+        </div>
+        <div id="trades-body"><div class="empty-state" style="padding:20px">Click a position or select a symbol from the list</div></div>
+      </div>
+
+      <!-- Transactions -->
+      <div id="tab-income" class="fpane">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);flex-wrap:wrap">
+          <label style="font-size:12px;color:var(--text-muted)">Type:</label>
+          <select id="income-type" class="form-input" style="width:180px;font-size:12px;padding:4px 8px" onchange="loadIncome()">
+            <option value="">All types</option>
+            <option value="REALIZED_PNL">Realized PnL</option>
+            <option value="FUNDING_FEE">Funding Fee</option>
+            <option value="COMMISSION">Commission</option>
+            <option value="TRANSFER">Transfer</option>
+          </select>
+          <span id="income-total" style="font-size:13px;font-weight:600;margin-left:8px"></span>
+        </div>
+        <div id="income-body"><div class="empty-state" style="padding:20px">Select an account</div></div>
+      </div>
+
+      <!-- Assets -->
+      <div id="tab-assets" class="fpane">
+        <div id="assets-body"><div class="empty-state" style="padding:20px">Select an account</div></div>
+      </div>
+
+    </div><!-- card -->
+  </div><!-- fin-main -->
+</div><!-- fin-layout -->
+
+<style>
+/* ── Financial layout ─────────────────────────────────────────────────── */
+.fin-layout{display:flex;height:calc(100vh - 112px);overflow:hidden}
+.fin-sidebar{width:210px;min-width:190px;display:flex;flex-direction:column;border-right:1px solid var(--border);overflow:hidden;flex-shrink:0}
+.fin-accounts{border-bottom:1px solid var(--border)}
+.fin-acc-tab{padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .1s}
+.fin-acc-tab:hover{background:var(--hover)}
+.fin-acc-tab.active{background:rgba(14,165,233,.08);border-left:3px solid #0ea5e9}
+.sym-item{padding:7px 12px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:12px;transition:background .1s}
+.sym-item:hover,.sym-item.active{background:var(--hover)}
+.sym-item.active{border-left:2px solid #0ea5e9}
+.fin-main{flex:1;overflow-y:auto;padding:0 0 24px 12px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.fin-bar{display:flex;align-items:center;gap:20px;padding:10px 16px;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;flex-wrap:wrap;flex-shrink:0}
+.bstat{display:flex;flex-direction:column;min-width:90px}
+.blbl{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px}
+.bval{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+.ivb{padding:2px 9px;border:1px solid var(--border);background:transparent;color:var(--text-muted);border-radius:4px;cursor:pointer;font-size:12px;transition:all .1s}
+.ivb.active,.ivb:hover{background:#0ea5e9;color:#fff;border-color:#0ea5e9}
+.ftab{padding:9px 14px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:13px;white-space:nowrap;border-bottom:2px solid transparent;transition:all .1s}
+.ftab.active{color:#0ea5e9;border-bottom-color:#0ea5e9}
+.fpane{display:none;overflow-x:auto;min-height:160px;max-height:360px;overflow-y:auto}
+.fpane.active{display:block}
+.tbadge{background:#ef4444;color:#fff;border-radius:10px;padding:1px 5px;font-size:10px;margin-left:3px;display:none}
+.tbadge.show{display:inline}
+.pos-row{cursor:pointer}
+.pos-row:hover td{background:rgba(14,165,233,.06)}
+.up{color:#10b981!important}.dn{color:#ef4444!important}
+.ord-section-head{padding:7px 14px;font-size:11px;font-weight:700;letter-spacing:.8px;color:#94a3b8;background:rgba(30,41,59,.6);border-bottom:1px solid var(--border);text-transform:uppercase}
+.ord-cnt{background:#334155;color:#e2e8f0;border-radius:8px;padding:1px 6px;font-size:10px;margin-left:4px}
+
+/* ── Financial: tablet (≤960px) ──────────────────────────────────────── */
+@media(max-width:960px){
+  .fin-layout{height:auto;overflow:visible;flex-direction:column}
+  .fin-sidebar{width:100%;min-width:0;border-right:none;border-bottom:1px solid var(--border);flex-direction:column;overflow:visible;max-height:none}
+  .fin-accounts{display:flex;flex-direction:row;overflow-x:auto;-webkit-overflow-scrolling:touch;border-bottom:1px solid var(--border)}
+  .fin-acc-tab{min-width:160px;flex-shrink:0;border-bottom:none;border-right:1px solid var(--border)}
+  .fin-acc-tab.active{border-left:none;border-bottom:3px solid #0ea5e9}
+  /* Symbol search + list hidden behind toggle on tablet */
+  #sym-search-wrap{display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid var(--border)}
+  #sym-list{display:none;max-height:200px;overflow-y:auto}
+  #sym-list.show{display:block}
+  .fin-main{padding:0;gap:8px}
+  .fin-bar{gap:12px;padding:8px 12px}
+  .fpane{max-height:300px}
+  #fin-chart{height:300px!important}
+}
+
+/* ── Financial: mobile (≤600px) ──────────────────────────────────────── */
+@media(max-width:600px){
+  .fin-bar{gap:8px;padding:8px}
+  #bar-price{font-size:18px!important}
+  .bstat{min-width:70px}
+  .bval{font-size:12px}
+  .blbl{font-size:9px}
+  /* Hide less important bar stats on small screens */
+  .bstat.hide-xs{display:none}
+  #fin-chart{height:240px!important}
+  .fpane{max-height:260px}
+  .ftab{padding:7px 10px;font-size:12px}
+  /* interval buttons scroll */
+  .ivb-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;display:flex;gap:4px;padding-bottom:2px}
+  .ivb{flex-shrink:0}
+  .table{font-size:11px}
+  .table th,.table td{padding:6px 8px}
+  .pnl-filter-bar{flex-wrap:wrap;gap:6px!important}
+  .pnl-filter-bar input,.pnl-filter-bar select{width:100%!important;min-width:0!important}
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let chart=null, cs=null, wsChart=null, wsTicker=null, wsUser=null;
+let curAcc=0, curSym='BTCUSDT', curIv='1m';
+let listenKey='', lkTimer=null;
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  // default date range: last 30 days
+  const today = new Date();
+  const d30 = new Date(); d30.setDate(today.getDate()-30);
+  document.getElementById('pnl-to').value   = today.toISOString().slice(0,10);
+  document.getElementById('pnl-from').value = d30.toISOString().slice(0,10);
+
+  // Show sym toggle button on tablet/mobile
+  if(window.innerWidth <= 960) {
+    document.getElementById('sym-toggle-btn').style.display='inline-flex';
+    // On mobile, show sym list by default when user focuses search
+    document.getElementById('sym-search').addEventListener('focus', ()=>{
+      document.getElementById('sym-list').classList.add('show');
+      document.getElementById('sym-toggle-btn').textContent='▲';
+    });
+  }
+
+  loadSymList('');
+  selectAccount(0);
+  setTimeout(() => { selectSymbol('BTCUSDT'); }, 400);
+
+  // Resize chart on orientation change
+  window.addEventListener('resize', () => {
+    if(chart) {
+      const h = window.innerWidth<=600?240:window.innerWidth<=960?300:400;
+      chart.resize(document.getElementById('fin-chart').clientWidth, h);
+    }
+  });
+});
+
+function toggleSymList() {
+  const list=document.getElementById('sym-list');
+  const btn=document.getElementById('sym-toggle-btn');
+  const open=list.classList.toggle('show');
+  btn.textContent=open?'▲':'▼';
+}
+
+// ── Account ───────────────────────────────────────────────────────────────────
+function selectAccount(idx) {
+  curAcc = idx;
+  document.querySelectorAll('.fin-acc-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelector(`.fin-acc-tab[data-idx="${idx}"]`)?.classList.add('active');
+  loadBalance(idx);
+  startUserStream(idx);
+  const tab = document.querySelector('.ftab.active')?.dataset.tab || 'positions';
+  runTab(tab);
+}
+
+function loadBalance(idx) {
+  fetch(`/api/account/${idx}/balance`).then(r=>r.json()).then(d=>{
+    const el=document.getElementById(`acc-bal-${idx}`);
+    if(!el||d.error) return;
+    const pc=d.unrealized_pnl>=0?'up':'dn', s=d.unrealized_pnl>=0?'+':'';
+    el.innerHTML=`${d.wallet_balance.toFixed(2)} USDT &nbsp;<span class="${pc}">${s}${d.unrealized_pnl.toFixed(2)}</span>`;
+  }).catch(()=>{});
+}
+
+// ── User data stream ──────────────────────────────────────────────────────────
+function startUserStream(idx) {
+  if(wsUser){wsUser.close();wsUser=null;}
+  if(lkTimer){clearInterval(lkTimer);lkTimer=null;}
+  fetch(`/api/account/${idx}/listenkey`,{method:'POST'}).then(r=>r.json()).then(d=>{
+    if(!d.listenKey) return;
+    listenKey=d.listenKey;
+    wsUser=new WebSocket(`wss://fstream.binance.com/ws/${listenKey}`);
+    wsUser.onmessage=e=>{
+      const m=JSON.parse(e.data);
+      const activeTab=document.querySelector('.ftab.active')?.dataset.tab;
+      if(m.e==='ACCOUNT_UPDATE'){
+        loadBalance(idx);
+        if(activeTab==='positions') loadPositions();
+        if(activeTab==='assets') loadAssets();
+      }
+      if(m.e==='ORDER_TRADE_UPDATE'){
+        if(activeTab==='orders') loadOrders();
+        if(activeTab==='trades') loadTrades();
+        updateBadges();
+      }
+    };
+    wsUser.onerror=()=>{};
+    lkTimer=setInterval(()=>{
+      fetch(`/api/account/${idx}/listenkey/renew`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({listenKey})});
+    },25*60*1000);
+  }).catch(()=>{});
+}
+
+// ── Symbol list ───────────────────────────────────────────────────────────────
+let _sd=null;
+function searchSymbols(q){ clearTimeout(_sd); _sd=setTimeout(()=>loadSymList(q),200); }
+
+function loadSymList(q) {
+  fetch(`/api/market/symbols?q=${encodeURIComponent(q.toUpperCase())}`).then(r=>r.json()).then(syms=>{
+    const list=document.getElementById('sym-list');
+    list.innerHTML=syms.map(s=>`
+      <div class="sym-item${s===curSym?' active':''}" id="si-${s}" onclick="selectSymbol('${s}')">
+        <span style="font-weight:600">${s.replace('USDT','')}<small style="color:var(--text-muted);font-weight:400">/USDT</small></span>
+        <span id="sc-${s}" style="font-size:11px;font-weight:600"></span>
+      </div>`).join('');
+  }).catch(()=>{});
+}
+
+// ── Select symbol — ONLY loads chart + ticker, nothing else ───────────────────
+function selectSymbol(sym) {
+  curSym=sym;
+  document.querySelectorAll('.sym-item').forEach(el=>el.classList.remove('active'));
+  document.getElementById(`si-${sym}`)?.classList.add('active');
+  document.getElementById('bar-sym').textContent=sym;
+  connectTicker(sym);
+  loadChart(sym);
+  // Update trade history label
+  document.getElementById('trades-sym-label').textContent=sym;
+  // If trade history tab is already open, reload it
+  if(document.querySelector('.ftab.active')?.dataset.tab==='trades') loadTrades();
+}
+
+// ── Ticker WebSocket ──────────────────────────────────────────────────────────
+function connectTicker(sym) {
+  if(wsTicker){wsTicker.close();wsTicker=null;}
+  const s=sym.toLowerCase();
+  wsTicker=new WebSocket(`wss://fstream.binance.com/stream?streams=${s}@ticker/${s}@markPrice@1s`);
+  wsTicker.onmessage=e=>{
+    try{
+      const d=JSON.parse(e.data).data;
+      if(!d) return;
+      if(d.e==='24hrTicker'){
+        const p=parseFloat(d.c), pct=parseFloat(d.P);
+        const pe=document.getElementById('bar-price');
+        const prev=parseFloat(pe.dataset.prev||p);
+        pe.textContent=fp(p);
+        pe.style.color=p>=prev?'#10b981':'#ef4444';
+        pe.dataset.prev=p;
+        const ce=document.getElementById('bar-chg');
+        ce.textContent=`${pct>=0?'+':''}${pct.toFixed(2)}%`;
+        ce.className=pct>=0?'up':'dn';
+        document.getElementById('bar-high').textContent=fp(parseFloat(d.h));
+        document.getElementById('bar-low').textContent=fp(parseFloat(d.l));
+        document.getElementById('bar-vol').textContent=fv(parseFloat(d.q));
+        const sc=document.getElementById(`sc-${d.s}`);
+        if(sc){sc.textContent=`${pct>=0?'+':''}${pct.toFixed(2)}%`;sc.className=pct>=0?'up':'dn';}
+      }
+      if(d.e==='markPriceUpdate'){
+        document.getElementById('bar-mark').textContent=fp(parseFloat(d.p));
+        document.getElementById('bar-idx').textContent=`Index ${fp(parseFloat(d.i||0))}`;
+        const fr=parseFloat(d.r||0)*100;
+        const nt=d.T?new Date(d.T).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
+        const fe=document.getElementById('bar-fund');
+        fe.textContent=`${fr>=0?'+':''}${fr.toFixed(4)}% ${nt}`;
+        fe.className=`bval ${fr>=0?'up':'dn'}`;
+      }
+    }catch(_){}
+  };
+  wsTicker.onerror=()=>{};
+}
+
+// ── Chart ─────────────────────────────────────────────────────────────────────
+function setIv(iv) {
+  curIv=iv;
+  document.querySelectorAll('.ivb').forEach(b=>b.classList.toggle('active',b.dataset.iv===iv));
+  if(curSym) loadChart(curSym);
+}
+
+function loadChart(sym) {
+  const c=document.getElementById('fin-chart');
+  if(chart){chart.remove();chart=null;cs=null;}
+  if(wsChart){wsChart.close();wsChart=null;}
+  c.innerHTML=`<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#0ea5e9;font-size:13px">Loading ${sym}…</div>`;
+
+  Promise.all([
+    fetch(`/api/chart/${sym}?interval=${curIv}&limit=500&account=${curAcc}`).then(r=>r.json()),
+    fetch(`/api/account/${curAcc}/positions`).then(r=>r.json()).catch(()=>[]),
+    fetch(`/api/account/${curAcc}/orders`).then(r=>r.json()).catch(()=>[]),
+  ]).then(([d, positions, orders])=>{
+      c.innerHTML='';
+      const chartH=window.innerWidth<=600?240:window.innerWidth<=960?300:400;
+      chart=LightweightCharts.createChart(c,{
+        width:c.clientWidth,height:chartH,
+        layout:{background:{color:'#0f172a'},textColor:'#94a3b8'},
+        grid:{vertLines:{color:'#1e293b'},horzLines:{color:'#1e293b'}},
+        crosshair:{mode:LightweightCharts.CrosshairMode.Normal},
+        rightPriceScale:{borderColor:'#334155'},
+        timeScale:{borderColor:'#334155',timeVisible:true,secondsVisible:curIv==='1m'},
+      });
+      cs=chart.addCandlestickSeries({
+        upColor:'#10b981',downColor:'#ef4444',
+        borderUpColor:'#10b981',borderDownColor:'#ef4444',
+        wickUpColor:'#10b981',wickDownColor:'#ef4444',
+      });
+      if(d.candles?.length) cs.setData(d.candles);
+
+      // ── Overlay: entry line + TP/SL/limit order lines (NO trade arrows) ───
+      const pos=positions.find(p=>p.symbol===sym);
+      if(pos && pos.entry_price>0) {
+        cs.createPriceLine({
+          price:pos.entry_price,
+          color:'#10b981',
+          lineWidth:2,
+          lineStyle:0,
+          axisLabelVisible:true,
+          title:`ENTRY  ${fp(pos.entry_price)}`,
+        });
+      }
+
+      // Draw a price line for EVERY open order of this symbol
+      orders.filter(o=>o.symbol===sym).forEach(o=>{
+        // Pick the relevant price: stopPrice > activatePrice > price
+        const price = o.stopPrice>0 ? o.stopPrice
+                    : o.activatePrice>0 ? o.activatePrice
+                    : o.price>0 ? o.price : 0;
+        if(!price) return;
+        const isTP    = o.type==='TAKE_PROFIT'||o.type==='TAKE_PROFIT_MARKET';
+        const isSL    = o.type==='STOP'||o.type==='STOP_MARKET';
+        const isTrail = o.type==='TRAILING_STOP_MARKET';
+        const isDCA   = o.type==='LIMIT'&&!o.reduceOnly&&!o.closePosition;
+        let color,title;
+        if(isTP)         {color='#f59e0b'; title=`TP  ${fp(price)}`;}
+        else if(isSL)    {color='#3b82f6'; title=`SL  ${fp(price)}`;}
+        else if(isTrail) {color='#60a5fa'; title=`TRAIL  ${fp(price)}${o.priceRate?'  ('+o.priceRate+'%)':''}`;}
+        else if(isDCA)   {color='#a78bfa'; title=`LMT  ${fp(price)}`;}
+        else             {color='#94a3b8'; title=`${o.type}  ${fp(price)}`;}
+        cs.createPriceLine({price,color,lineWidth:1,lineStyle:1,axisLabelVisible:true,title});
+      });
+      // ───────────────────────────────────────────────────────────────────────
+
+      chart.timeScale().fitContent();
+      wsChart=new WebSocket(`wss://fstream.binance.com/ws/${sym.toLowerCase()}@kline_${curIv}`);
+      wsChart.onmessage=ev=>{try{const k=JSON.parse(ev.data).k;if(k&&cs)cs.update({time:k.t/1000,open:+k.o,high:+k.h,low:+k.l,close:+k.c});}catch(_){}};
+      wsChart.onerror=()=>{};
+    }).catch(()=>{c.innerHTML=`<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#ef4444">Failed to load chart</div>`;});
+}
+// (resize handled in DOMContentLoaded boot block above)
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function switchTab(btn) {
+  document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.fpane').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  const tab=btn.dataset.tab;
+  document.getElementById('tab-'+tab).classList.add('active');
+  runTab(tab);
+}
+function runTab(tab) {
+  switch(tab){
+    case 'positions': loadPositions(); break;
+    case 'orders':    loadOrders();    break;
+    case 'pnl':       loadPnl();       break;
+    case 'trades':    loadTrades();    break;
+    case 'income':    loadIncome();    break;
+    case 'assets':    loadAssets();    break;
+  }
+}
+
+// ── Open Positions — click row = load THAT symbol chart only ─────────────────
+function loadPositions() {
+  const el=document.getElementById('tab-positions');
+  fetch(`/api/account/${curAcc}/positions`).then(r=>r.json()).then(rows=>{
+    const b=document.getElementById('bp');
+    if(rows.length){b.textContent=rows.length;b.classList.add('show');}else b.classList.remove('show');
+    if(!rows.length){el.innerHTML='<div class="empty-state" style="padding:20px">No open positions</div>';return;}
+    el.innerHTML=`<table class="table"><thead><tr>
+      <th>Symbol</th><th>Side</th><th>Size</th><th>Entry</th><th>Mark</th>
+      <th>Unrealized PnL</th><th>ROE%</th><th>Notional</th><th>Lev.</th>
+    </tr></thead><tbody>${rows.map(p=>{
+      const pc=p.pnl>=0?'up':'dn', sc=p.side==='LONG'?'badge-success':'badge-danger';
+      return `<tr class="pos-row" title="Click to view chart" onclick="selectSymbol('${p.symbol}')">
+        <td><strong>${p.symbol}</strong></td>
+        <td><span class="badge ${sc}">${p.side}</span></td>
+        <td>${p.size}</td>
+        <td>${fp(p.entry_price)}</td>
+        <td>${fp(p.mark_price)}</td>
+        <td class="${pc}">${p.pnl>=0?'+':''}${p.pnl.toFixed(4)}</td>
+        <td class="${pc}">${p.pnl_pct>=0?'+':''}${p.pnl_pct.toFixed(2)}%</td>
+        <td>${p.notional.toFixed(2)}</td>
+        <td>${p.leverage||'—'}x</td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+  }).catch(()=>{el.innerHTML='<div class="empty-state" style="padding:20px;color:#ef4444">Failed to load</div>';});
+}
+
+// ── Open Orders ───────────────────────────────────────────────────────────────
+const _COND_TYPES=['STOP','STOP_MARKET','TAKE_PROFIT','TAKE_PROFIT_MARKET','TRAILING_STOP_MARKET'];
+
+function _orderRow(o) {
+  const sc=o.side==='BUY'?'badge-success':'badge-danger';
+  const dispPrice=o.stopPrice>0?fp(o.stopPrice):(o.price>0?fp(o.price):'Market');
+  return `<tr>
+    <td><strong>${o.symbol}</strong></td>
+    <td><span class="badge badge-secondary" style="font-size:10px">${o.type}</span></td>
+    <td><span class="badge ${sc}">${o.side}</span></td>
+    <td>${dispPrice}</td>
+    <td>${o.origQty}</td><td>${o.executedQty}</td>
+    <td>${o.reduceOnly?'<span style="color:#f59e0b">Reduce</span>':'—'}</td>
+    <td class="small text-muted">${ft(o.time)}</td>
+  </tr>`;
+}
+
+function _ordersTable(rows) {
+  return `<table class="table"><thead><tr>
+    <th>Symbol</th><th>Type</th><th>Side</th><th>Price</th>
+    <th>Qty</th><th>Filled</th><th>Flag</th><th>Time</th>
+  </tr></thead><tbody>${rows.map(_orderRow).join('')}</tbody></table>`;
+}
+
+function loadOrders() {
+  const el=document.getElementById('tab-orders');
+  el.innerHTML='<div class="empty-state" style="padding:20px">Loading…</div>';
+  fetch(`/api/account/${curAcc}/orders`).then(r=>r.json()).then(rows=>{
+    const b=document.getElementById('bo');
+    if(rows.length){b.textContent=rows.length;b.classList.add('show');}else b.classList.remove('show');
+    if(!rows.length){el.innerHTML='<div class="empty-state" style="padding:20px">No open orders</div>';return;}
+
+    const main=rows.filter(o=>!_COND_TYPES.includes(o.type));
+    const cond=rows.filter(o=>_COND_TYPES.includes(o.type));
+
+    let html='';
+    if(main.length) {
+      html+=`<div class="ord-section-head">MAIN ORDERS <span class="ord-cnt">${main.length}</span></div>`;
+      html+=_ordersTable(main);
+    }
+    if(cond.length) {
+      html+=`<div class="ord-section-head" style="margin-top:${main.length?'4px':'0'}">CONDITIONAL ORDERS <span class="ord-cnt">${cond.length}</span></div>`;
+      html+=_ordersTable(cond);
+    }
+    el.innerHTML=html;
+  }).catch(()=>{el.innerHTML='<div class="empty-state" style="padding:20px;color:#ef4444">Failed to load</div>';});
+}
+
+// ── Position History ──────────────────────────────────────────────────────────
+function clearPnlFilter() {
+  document.getElementById('pnl-sym').value='';
+  const today=new Date(), d30=new Date(); d30.setDate(today.getDate()-30);
+  document.getElementById('pnl-to').value=today.toISOString().slice(0,10);
+  document.getElementById('pnl-from').value=d30.toISOString().slice(0,10);
+  loadPnl();
+}
+
+function loadPnl() {
+  const el=document.getElementById('pnl-body');
+  el.innerHTML='<div class="empty-state" style="padding:20px">Loading…</div>';
+  const sym=(document.getElementById('pnl-sym').value||'').trim().toUpperCase();
+  const from=document.getElementById('pnl-from').value;
+  const to=document.getElementById('pnl-to').value;
+  let url=`/api/account/${curAcc}/income?type=REALIZED_PNL`;
+  if(sym) url+=`&symbol=${sym}`;
+  fetch(url).then(r=>r.json()).then(rows=>{
+    // Date filter client-side
+    let filtered=rows;
+    if(from){const ts=new Date(from).getTime(); filtered=filtered.filter(r=>r.time>=ts);}
+    if(to){const ts=new Date(to).getTime()+86400000; filtered=filtered.filter(r=>r.time<=ts);}
+    const total=filtered.reduce((s,r)=>s+parseFloat(r.income||0),0);
+    const tc=total>=0?'up':'dn';
+    document.getElementById('pnl-total').innerHTML=
+      `Total: <span class="${tc}">${total>=0?'+':''}${total.toFixed(4)} USDT</span> (${filtered.length} records)`;
+    if(!filtered.length){el.innerHTML='<div class="empty-state" style="padding:20px">No records found</div>';return;}
+    el.innerHTML=`<table class="table"><thead><tr>
+      <th>Time</th><th>Symbol</th><th>Realized PnL (USDT)</th>
+    </tr></thead><tbody>${filtered.map(r=>{
+      const v=parseFloat(r.income||0), pc=v>=0?'up':'dn';
+      return `<tr>
+        <td class="small text-muted">${ft(r.time)}</td>
+        <td><strong>${r.symbol||'—'}</strong></td>
+        <td class="${pc}" style="font-weight:600">${v>=0?'+':''}${v.toFixed(4)}</td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+  }).catch(()=>{el.innerHTML='<div class="empty-state" style="padding:20px;color:#ef4444">Failed to load</div>';});
+}
+
+// ── Trade History ─────────────────────────────────────────────────────────────
+function loadTrades() {
+  const el=document.getElementById('trades-body');
+  document.getElementById('trades-sym-label').textContent=curSym||'—';
+  if(!curSym){el.innerHTML='<div class="empty-state" style="padding:20px">Select a symbol first</div>';return;}
+  el.innerHTML=`<div class="empty-state" style="padding:20px">Loading trades for ${curSym}…</div>`;
+  fetch(`/api/account/${curAcc}/trades/${curSym}`).then(r=>r.json()).then(rows=>{
+    if(!rows.length){el.innerHTML=`<div class="empty-state" style="padding:20px">No trades for ${curSym}</div>`;return;}
+    const sorted=[...rows].sort((a,b)=>b.time-a.time);
+    el.innerHTML=`<table class="table"><thead><tr>
+      <th>Time</th><th>Side</th><th>Price</th><th>Qty</th>
+      <th>Realized PnL</th><th>Commission</th><th>Maker</th>
+    </tr></thead><tbody>${sorted.map(t=>{
+      const pnl=parseFloat(t.realizedPnl||0), pc=pnl>=0?'up':'dn';
+      const sc=t.side==='BUY'?'badge-success':'badge-danger';
+      return `<tr>
+        <td class="small text-muted">${ft(t.time)}</td>
+        <td><span class="badge ${sc}">${t.side}</span></td>
+        <td>${fp(parseFloat(t.price))}</td>
+        <td>${parseFloat(t.qty).toFixed(4)}</td>
+        <td class="${pc}">${pnl>=0?'+':''}${pnl.toFixed(4)}</td>
+        <td class="text-muted small">${parseFloat(t.commission||0).toFixed(6)} ${t.commissionAsset||''}</td>
+        <td>${t.maker?'✓':'—'}</td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+  }).catch(()=>{el.innerHTML='<div class="empty-state" style="padding:20px;color:#ef4444">Failed to load</div>';});
+}
+
+// ── Transactions ──────────────────────────────────────────────────────────────
+function loadIncome() {
+  const el=document.getElementById('income-body');
+  el.innerHTML='<div class="empty-state" style="padding:20px">Loading…</div>';
+  const t=document.getElementById('income-type').value;
+  fetch(`/api/account/${curAcc}/income${t?'?type='+t:''}`).then(r=>r.json()).then(rows=>{
+    const total=rows.reduce((s,r)=>s+parseFloat(r.income||0),0);
+    const tc=total>=0?'up':'dn';
+    document.getElementById('income-total').innerHTML=
+      `Total: <span class="${tc}">${total>=0?'+':''}${total.toFixed(4)}</span>`;
+    if(!rows.length){el.innerHTML='<div class="empty-state" style="padding:20px">No records</div>';return;}
+    const colors={FUNDING_FEE:'badge-secondary',REALIZED_PNL:'badge-success',COMMISSION:'badge-secondary',TRANSFER:'badge-info'};
+    el.innerHTML=`<table class="table"><thead><tr>
+      <th>Time</th><th>Type</th><th>Symbol</th><th>Amount</th><th>Asset</th>
+    </tr></thead><tbody>${rows.map(r=>{
+      const v=parseFloat(r.income||0), pc=v>=0?'up':'dn';
+      return `<tr>
+        <td class="small text-muted">${ft(r.time)}</td>
+        <td><span class="badge ${colors[r.incomeType]||'badge-secondary'}" style="font-size:10px">${r.incomeType}</span></td>
+        <td>${r.symbol||'—'}</td>
+        <td class="${pc}">${v>=0?'+':''}${v.toFixed(6)}</td>
+        <td class="text-muted">${r.asset||'USDT'}</td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+  }).catch(()=>{el.innerHTML='<div class="empty-state" style="padding:20px;color:#ef4444">Failed to load</div>';});
+}
+
+// ── Assets ────────────────────────────────────────────────────────────────────
+function loadAssets() {
+  const el=document.getElementById('assets-body');
+  el.innerHTML='<div class="empty-state" style="padding:20px">Loading…</div>';
+  fetch(`/api/account/${curAcc}/assets`).then(r=>r.json()).then(rows=>{
+    if(!rows.length){el.innerHTML='<div class="empty-state" style="padding:20px">No assets</div>';return;}
+    el.innerHTML=`<table class="table"><thead><tr>
+      <th>Asset</th><th>Wallet Balance</th><th>Unrealized PnL</th><th>Margin Balance</th><th>Available</th>
+    </tr></thead><tbody>${rows.map(a=>{
+      const pc=a.unrealizedProfit>=0?'up':'dn';
+      return `<tr>
+        <td><strong>${a.asset}</strong></td>
+        <td>${a.walletBalance.toFixed(4)}</td>
+        <td class="${pc}">${a.unrealizedProfit>=0?'+':''}${a.unrealizedProfit.toFixed(4)}</td>
+        <td>${a.marginBalance.toFixed(4)}</td>
+        <td>${a.availableBalance.toFixed(4)}</td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+  }).catch(()=>{el.innerHTML='<div class="empty-state" style="padding:20px;color:#ef4444">Failed to load</div>';});
+}
+
+function updateBadges() { loadPositions(); loadOrders(); }
+
+// ── Formatters ────────────────────────────────────────────────────────────────
+function fp(p){
+  if(!p||isNaN(p)) return '—';
+  if(p>=10000) return p.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
+  if(p>=1)     return p.toFixed(4);
+  if(p>=0.001) return p.toFixed(5);
+  return p.toFixed(6);
+}
+function fv(v){
+  if(!v) return '—';
+  if(v>=1e9) return (v/1e9).toFixed(2)+'B';
+  if(v>=1e6) return (v/1e6).toFixed(2)+'M';
+  if(v>=1e3) return (v/1e3).toFixed(1)+'K';
+  return v.toFixed(2);
+}
+function ft(ms){
+  if(!ms) return '—';
+  return new Date(ms).toLocaleString([],{month:'2-digit',day:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+// ── Auto-refresh fallback every 10s ──────────────────────────────────────────
+setInterval(()=>{
+  document.querySelectorAll('.fin-acc-tab').forEach(t=>loadBalance(parseInt(t.dataset.idx)));
+  const tab=document.querySelector('.ftab.active')?.dataset.tab;
+  if(tab==='positions') loadPositions();
+  if(tab==='orders')    loadOrders();
+},10000);
+</script>
+{% endblock %}

@@ -1,0 +1,75 @@
+environment: production
+
+trading:
+  enabled: true
+
+capital:
+  initial: 10000
+  currency: USDT
+
+timeframe:
+  base: "1m"
+  higher:
+    - "5m"
+    - "15m"
+
+session:
+  start: "00:00"
+  end: "23:59"
+
+fees:
+  maker: 0.0002
+  taker: 0.0004
+
+leverage:
+  default: 3
+  max: 10
+
+"api_id": 21913845
+"api_hash": "fa2718af25ca299a9e4d3ec8117b6986"
+telegram_token: "8504438706:AAGHWK9Yw6VRi_HBG-gtzyo9sp-JDYSuHpY"
+telegram_chat_id: 6143054838
+
+filters:
+  min_5m_move_pct: 2.0
+  min_1m_notional_usd: 20000.0
+
+auto_ml:
+  enabled: true
+  interval_minutes: 1.0
+
+news_guard:
+  enabled: false
+
+notifications:
+  outcome_alerts_enabled: false
+
+control_bot:
+  token: "8553048865:AAFap39HYKAWdLeyzVtSbIxa4MbbpArUObE"
+
+log_bot:
+  token: "8303954908:AAE1izJLklYBRc1ChT89r2ZZNKywUzQhMyc"
+
+analytics_bot:
+  token: "8344127754:AAE-rDj1nX96rNpxrScFg-UwPV-3vs4HXw8"
+  window_hours: 10.0
+
+accounts_bot:
+  token: "8509107339:AAGJDmcmEhl-na7iGKpnBM8oV6mP_gZ-6VQ"
+
+reports_bot:
+  token: "8239199480:AAFzjysPB314_RGICp1HNcP9X_44Oz_OKgc"
+
+signals:
+  sl_pct: 2.0
+  tp_pcts: [2.0, 4.0, 6.0]
+
+execution:
+  tp_mode: 1
+  auto_sl_tp_enabled: true
+  # Global toggle for dynamic (delayed) entries.
+  # When false, the bot enters immediately at market using the signal price.
+  # When true, accounts that have entry_offset_pct configured will delay
+  # entries until price reaches the offset target or the per-account timeout
+  # expires.
+  dynamic_entry_enabled: true

@@ -1,0 +1,5 @@
+execution:
+  backend_mode: parity
+  device: CPU
+  batch_size: 256
+  precision: fp32

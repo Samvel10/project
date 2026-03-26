@@ -1,0 +1,32 @@
+{
+  "111": {
+    "chat_id": 111,
+    "user_id": 111,
+    "first_name": "NewUser",
+    "username": "test"
+  },
+  "6143054838": {
+    "chat_id": 6143054838,
+    "user_id": 6143054838,
+    "first_name": "Samvel",
+    "username": "samvel167170"
+  },
+  "222": {
+    "chat_id": 222,
+    "user_id": 222,
+    "first_name": "Viewer",
+    "username": "test"
+  },
+  "5947118744": {
+    "chat_id": 5947118744,
+    "user_id": 5947118744,
+    "first_name": "Meri",
+    "username": ""
+  },
+  "362128240": {
+    "chat_id": 362128240,
+    "user_id": 362128240,
+    "first_name": "John",
+    "username": ""
+  }
+}

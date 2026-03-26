@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+{% block title %}Users — TradeBot{% endblock %}
+{% block page_title %}User Management{% endblock %}
+
+{% block content %}
+<div class="grid grid-2">
+  <!-- Create user directly -->
+  <div class="card">
+    <div class="card-header">➕ Create User Directly</div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('auth.create_user') }}">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" name="username" class="form-input" required minlength="3" maxlength="64">
+        </div>
+        <div class="form-group">
+          <label>Email (optional)</label>
+          <input type="email" name="email" class="form-input">
+        </div>
+        <div class="form-group">
+          <label>Password (min 10 chars)</label>
+          <input type="password" name="password" class="form-input" required minlength="10">
+        </div>
+        <div class="form-group">
+          <label>Role</label>
+          <select name="role" class="form-input">
+            <option value="user">👤 User</option>
+            <option value="admin">🔧 Admin</option>
+            {% if user.role == 'superadmin' %}
+            <option value="superadmin">⭐ Super Admin</option>
+            {% endif %}
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Create User</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Send invitation link -->
+  <div class="card">
+    <div class="card-header">📨 Send Invitation Link</div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('auth.create_invitation') }}" id="invite-form">
+        <div class="form-group">
+          <label>Role for invited person</label>
+          <select name="role" class="form-input" id="invite-role" onchange="updateRoleInfo()">
+            <option value="user">👤 User — read-only dashboards</option>
+            <option value="admin">🔧 Admin — can manage config, see all data</option>
+            {% if user.role == 'superadmin' %}
+            <option value="superadmin">⭐ Super Admin — full access</option>
+            {% endif %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Their email (optional, for pre-fill)</label>
+          <input type="email" name="email" class="form-input" placeholder="friend@example.com">
+        </div>
+        <div id="role-info" class="invite-role-info"></div>
+        <button type="submit" class="btn btn-primary">Generate Invitation Link</button>
+      </form>
+
+      {% if google_enabled %}
+      <div class="divider mt-4"><span>Note</span></div>
+      <p class="small text-muted">Google login is enabled. Invited users can also sign in with their Google account — they just need to use the same email address.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Active Invitations -->
+{% if invitations %}
+<div class="card mt-4">
+  <div class="card-header">📋 Recent Invitations</div>
+  <div class="card-body p-0">
+    <table class="table">
+      <thead><tr><th>Role</th><th>Created by</th><th>Email</th><th>Expires</th><th>Status</th><th>Link</th></tr></thead>
+      <tbody>
+        {% for inv in invitations %}
+        <tr>
+          <td><span class="badge badge-{{ inv.role }}">{{ inv.role }}</span></td>
+          <td>{{ inv.created_by_name or '—' }}</td>
+          <td class="small text-muted">{{ inv.email or '—' }}</td>
+          <td class="small text-muted">{{ inv.expires_at.strftime('%Y-%m-%d %H:%M') if inv.expires_at }}</td>
+          <td>
+            {% if inv.used_at %}
+              <span class="badge badge-secondary">✓ Used</span>
+            {% elif inv.is_valid() %}
+              <span class="badge badge-success">Active</span>
+            {% else %}
+              <span class="badge badge-secondary">Expired</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if inv.is_valid() %}
+            <button class="btn btn-xs btn-secondary" onclick="copyLink('{{ url_for('auth.register_with_token', token=inv.token, _external=True) }}')">📋 Copy</button>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Users list -->
+<div class="card mt-4">
+  <div class="card-header">👥 All Users</div>
+  <div class="card-body p-0">
+    <table class="table">
+      <thead>
+        <tr><th>Username</th><th>Role</th><th>Email</th><th>Status</th><th>Last Login</th><th>Created</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>
+            <strong>{{ u.username }}</strong>
+            {% if u.id == user.id %}<span class="badge badge-info" style="margin-left:4px">You</span>{% endif %}
+          </td>
+          {% set display_role = 'admin' if (u.role == 'superadmin' and user.role != 'superadmin') else u.role %}
+          <td><span class="badge badge-{{ display_role }}">{{ display_role }}</span></td>
+          <td class="small text-muted">{{ u.email or '—' }}</td>
+          <td>
+            <span class="badge {% if u.is_active %}badge-success{% else %}badge-secondary{% endif %}">
+              {% if u.is_active %}Active{% else %}Inactive{% endif %}
+            </span>
+          </td>
+          <td class="small text-muted">{{ u.last_login.strftime('%Y-%m-%d %H:%M') if u.last_login else 'Never' }}</td>
+          <td class="small text-muted">{{ u.created_at.strftime('%Y-%m-%d') if u.created_at else '—' }}</td>
+          <td>
+            {% if u.id != user.id and not (u.role == 'superadmin' and user.role != 'superadmin') %}
+            <form method="POST" action="{{ url_for('auth.toggle_user', user_id=u.id) }}" style="display:inline">
+              <button type="submit" class="btn btn-xs {% if u.is_active %}btn-warning{% else %}btn-success{% endif %}">
+                {% if u.is_active %}Disable{% else %}Enable{% endif %}
+              </button>
+            </form>
+            <button class="btn btn-xs btn-secondary" onclick="resetPw({{ u.id }}, '{{ u.username }}')">Reset PW</button>
+            {% endif %}
+            {# Rename: admins can rename themselves + users; superadmins can rename anyone #}
+            {% if user.role == 'superadmin' or
+                  (user.role == 'admin' and (u.id == user.id or u.role == 'user')) %}
+            <button class="btn btn-xs btn-secondary" onclick="renameUser({{ u.id }}, '{{ u.username }}')">Rename</button>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Reset PW modal -->
+<div id="reset-modal" class="modal" style="display:none">
+  <div class="modal-backdrop" onclick="closeReset()"></div>
+  <div class="modal-box">
+    <div class="modal-header">Reset Password — <span id="reset-name"></span></div>
+    <form id="reset-form" method="POST">
+      <div class="modal-body">
+        <div class="form-group">
+          <label>New Password (min 10 chars)</label>
+          <input type="password" name="new_password" id="reset-pw" class="form-input" minlength="10" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" onclick="closeReset()" class="btn btn-secondary">Cancel</button>
+        <button type="submit" class="btn btn-primary">Reset</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Copy link toast -->
+<div id="copy-toast" class="copy-toast" style="display:none">✓ Link copied to clipboard!</div>
+
+<!-- Rename modal -->
+<div id="rename-modal" class="modal" style="display:none">
+  <div class="modal-backdrop" onclick="closeRename()"></div>
+  <div class="modal-box">
+    <div class="modal-header">Rename User — <span id="rename-label"></span></div>
+    <form id="rename-form" method="POST">
+      <div class="modal-body">
+        <div class="form-group">
+          <label>New Username (min 3 chars)</label>
+          <input type="text" name="new_username" id="rename-input" class="form-input" minlength="3" maxlength="64" required autofocus>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" onclick="closeRename()" class="btn btn-secondary">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const roleDescriptions = {
+  user:       "Can view all dashboards. Cannot change config or manage users.",
+  admin:      "Can view dashboards, change config, manage users (except superadmin). Cannot access Telegram admin channel.",
+  superadmin: "Full access to everything including Telegram admin channel."
+};
+
+function updateRoleInfo() {
+  const role = document.getElementById('invite-role').value;
+  document.getElementById('role-info').innerHTML =
+    `<p class="small text-muted" style="margin-top:8px;padding:8px;background:var(--bg);border-radius:6px">${roleDescriptions[role] || ''}</p>`;
+}
+updateRoleInfo();
+
+function resetPw(userId, username) {
+  document.getElementById('reset-name').textContent = username;
+  document.getElementById('reset-form').action = `/admin/users/${userId}/reset-password`;
+  document.getElementById('reset-pw').value = '';
+  document.getElementById('reset-modal').style.display = 'flex';
+}
+function closeReset() { document.getElementById('reset-modal').style.display = 'none'; }
+
+function copyLink(link) {
+  navigator.clipboard.writeText(link).then(() => {
+    const toast = document.getElementById('copy-toast');
+    toast.style.display = 'block';
+    setTimeout(() => { toast.style.display = 'none'; }, 3000);
+  }).catch(() => {
+    prompt('Copy this invitation link:', link);
+  });
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeReset(); closeRename(); } });
+
+function renameUser(userId, username) {
+  document.getElementById('rename-label').textContent = username;
+  document.getElementById('rename-form').action = `/admin/users/${userId}/rename`;
+  document.getElementById('rename-input').value = username;
+  document.getElementById('rename-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('rename-input').select(), 50);
+}
+function closeRename() { document.getElementById('rename-modal').style.display = 'none'; }
+</script>
+{% endblock %}

@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Overview — TradeBot{% endblock %}
+{% block page_title %}Overview{% endblock %}
+
+{% block content %}
+<!-- Process Status Row -->
+<div class="grid grid-4">
+  {% for name, info in processes.items() %}
+  <div class="card stat-card">
+    <div class="stat-label">{{ name }}</div>
+    <div class="stat-value">
+      <span class="status-dot {% if info.running %}status-green{% else %}status-red{% endif %}"></span>
+      {% if info.running %}Running{% else %}Stopped{% endif %}
+    </div>
+    {% if info.pid %}<div class="stat-sub">PID {{ info.pid }}</div>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Market Regime + Quality Row -->
+<div class="grid grid-2 mt-4">
+  <div class="card">
+    <div class="card-header">Market Regime</div>
+    <div class="card-body">
+      <div class="metric-row">
+        <span class="metric-label">Status</span>
+        <span class="badge badge-{% if regime.get('last_regime') == 'ACTIVE' %}success{% elif regime.get('last_regime') == 'QUIET' %}warning{% else %}secondary{% endif %}">
+          {{ regime.get('last_regime', 'UNKNOWN') }}
+        </span>
+      </div>
+      {% if regime.get('last_score') is not none %}
+      <div class="metric-row">
+        <span class="metric-label">Score</span>
+        <span class="metric-value">{{ "%.2f"|format(regime.last_score) }}</span>
+      </div>
+      {% endif %}
+      <div class="metric-row">
+        <span class="metric-label">BTC Vol Ratio</span>
+        <span class="metric-value">{{ "%.2f"|format(regime.get('btc_volume_ratio', 0)) }}x</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Avg Spread</span>
+        <span class="metric-value">{{ "%.4f"|format(regime.get('avg_spread_pct', 0)) }}%</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">Market Quality (MQA)</div>
+    <div class="card-body">
+      <div class="metric-row">
+        <span class="metric-label">✅ Good</span>
+        <span class="metric-value text-success">{{ quality_summary.good }}</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">⚠️ Suspect</span>
+        <span class="metric-value text-warning">{{ quality_summary.suspect }}</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">🚫 Manipulated</span>
+        <span class="metric-value text-danger">{{ quality_summary.manipulated }}</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Total analyzed</span>
+        <span class="metric-value">{{ quality_summary.total }}</span>
+      </div>
+      <a href="{{ url_for('dashboard.market_quality') }}" class="btn btn-sm btn-secondary mt-2">View All →</a>
+    </div>
+  </div>
+</div>
+
+<!-- Accounts Row -->
+<div class="card mt-4">
+  <div class="card-header">Trading Accounts</div>
+  <div class="card-body p-0">
+    <table class="table">
+      <thead>
+        <tr><th>Name</th><th>Trading</th><th>Notional</th><th>Leverage</th><th>AITM</th></tr>
+      </thead>
+      <tbody>
+        {% for acc in accounts %}
+        <tr>
+          <td><strong>{{ acc.name }}</strong></td>
+          <td>
+            <span class="badge {% if acc.trade_enabled %}badge-success{% else %}badge-secondary{% endif %}">
+              {% if acc.trade_enabled %}ENABLED{% else %}DISABLED{% endif %}
+            </span>
+          </td>
+          <td>{{ acc.notional or '—' }} USDT</td>
+          <td>x{{ acc.leverage or '—' }}</td>
+          <td>
+            <span class="badge {% if acc.aitm_enabled %}badge-info{% else %}badge-secondary{% endif %}">
+              {% if acc.aitm_enabled %}ON{% else %}OFF{% endif %}
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Recent Signals -->
+<div class="card mt-4">
+  <div class="card-header">
+    Recent Signals
+    <a href="{{ url_for('dashboard.signals_log') }}" class="btn btn-sm btn-secondary float-right">View All</a>
+  </div>
+  <div class="card-body p-0">
+    <table class="table">
+      <thead>
+        <tr><th>Time</th><th>Symbol</th><th>Direction</th><th>Confidence</th><th>Profile</th></tr>
+      </thead>
+      <tbody>
+        {% for s in recent_signals[-15:]|reverse %}
+        <tr>
+          <td class="text-muted small">{{ s.get('timestamp', '')[:16] }}</td>
+          <td><strong>{{ s.get('symbol', '') }}</strong></td>
+          <td>
+            <span class="badge {% if s.get('direction') == 'BUY' %}badge-success{% elif s.get('direction') == 'SELL' %}badge-danger{% else %}badge-secondary{% endif %}">
+              {{ s.get('direction', '—') }}
+            </span>
+          </td>
+          <td>{{ s.get('confidence', '—') }}</td>
+          <td class="text-muted small">{{ s.get('profile', '') }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-center text-muted">No signals yet</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Blocklist -->
+{% if blocklist %}
+<div class="card mt-4">
+  <div class="card-header">🚫 Symbol Blocklist ({{ blocklist|length }})</div>
+  <div class="card-body">
+    <div class="tag-cloud">
+      {% for sym in blocklist %}
+      <span class="tag tag-danger">{{ sym }}</span>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

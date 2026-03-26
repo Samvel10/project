@@ -1,0 +1,11 @@
+universe: ALL_BINANCE_FUTURES
+
+filters:
+  quote_asset: USDT
+  status: TRADING
+  min_volume_24h: 5000000
+
+exclude:
+  - BTCSTUSDT
+  - BTCUPUSDT
+  - BTCDOWNUSDT

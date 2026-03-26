@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "account_index": 5,
+  "rooms_count": 5,
+  "slots_per_room": 10,
+  "base_usdt": 150.0,
+  "multiplier": 2.0,
+  "rooms": [
+    {
+      "status": "IDLE",
+      "current_notional_usdt": 150.0,
+      "batch_id": 0,
+      "batch_start_ts": null,
+      "batch_end_ts": null,
+      "slots": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "status": "IDLE",
+      "current_notional_usdt": 150.0,
+      "batch_id": 0,
+      "batch_start_ts": null,
+      "batch_end_ts": null,
+      "slots": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "status": "IDLE",
+      "current_notional_usdt": 150.0,
+      "batch_id": 0,
+      "batch_start_ts": null,
+      "batch_end_ts": null,
+      "slots": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "status": "IDLE",
+      "current_notional_usdt": 150.0,
+      "batch_id": 0,
+      "batch_start_ts": null,
+      "batch_end_ts": null,
+      "slots": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "status": "IDLE",
+      "current_notional_usdt": 150.0,
+      "batch_id": 0,
+      "batch_start_ts": null,
+      "batch_end_ts": null,
+      "slots": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    }
+  ],
+  "history": []
+}

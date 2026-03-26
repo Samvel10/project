@@ -1,0 +1,63 @@
+enabled: true
+
+# Check interval in minutes (user-configurable).
+interval_minutes: 5 
+
+telegram:
+  # If left empty, script falls back to config/trading.yaml values.
+  token: "8655304296:AAGx-rftXNCtHo2JxcW8IcAuzQHsklB6VDE"
+  chat_id: 0
+  # false => send only to admin chat_id
+  broadcast_to_subscribers: true
+  only_on_regime_change: false
+  send_startup_message: false
+  send_first_analysis_on_startup: true
+  include_emoji: true
+  detailed_message: true
+
+market:
+  base_symbol: BTCUSDT
+  # Use one of:
+  # - ALL_BINANCE_FUTURES (recommended for full market picture)
+  # - explicit list of symbols
+  ai_symbols:
+    - ALL_BINANCE_FUTURES
+  exclude_symbols: []
+  # 0 = no cap (all symbols). Use >0 if you want to cap universe size.
+  universe_max_symbols: 0
+  # To keep interval stable, analyze a rotating subset each cycle.
+  analysis_symbols_per_cycle: 35
+  microstructure_symbols_per_cycle: 25
+  correlation_symbols_per_cycle: 20
+
+thresholds:
+  btc_volume_ratio_active: 1.5
+  ai_volume_ratio_active: 1.3
+  ai_oi_change_pct_active: 0.7
+  spread_pct_max: 0.04
+  top5_depth_usdt_min: 250000
+  slippage_bps_max: 6.0
+  correlation_min: 0.35
+  score_active: 0.60
+  score_quiet: 0.40
+
+weights:
+  volume: 0.4
+  oi: 0.3
+  microstructure: 0.2
+  correlation: 0.1
+
+windows:
+  # Candles used for volume baseline ratios.
+  volume_5m_lookback_candles: 288
+  # For correlation we use 1m close returns in this window.
+  correlation_window_minutes: 30
+
+limits:
+  # Notional used only for slippage estimate.
+  slippage_estimate_notional_usdt: 1000
+
+runtime:
+  request_timeout_sec: 10
+  data_path: data/market_regime_state.json
+  pid_path: data/market_regime.pid

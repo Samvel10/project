@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+{% block title %}Config — TradeBot{% endblock %}
+{% block page_title %}Configuration Management{% endblock %}
+
+{% block content %}
+<div class="grid grid-2">
+  {% for name, cfg in configs.items() %}
+  <div class="card">
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+      <span>{{ name | title | replace('_', ' ') }}</span>
+      {% if user.role in ('superadmin', 'admin') %}
+      <button class="btn btn-xs btn-secondary" onclick="openRawModal('{{ name }}')">✏️ Edit Raw YAML</button>
+      {% endif %}
+    </div>
+    <div class="card-body p-0">
+      <table class="table config-table">
+        <thead><tr><th>Field</th><th>Value</th>{% if user.role in ('superadmin', 'admin') %}<th>Edit</th>{% endif %}</tr></thead>
+        <tbody>
+          {% for key, val in cfg.items() %}
+          {% if val is mapping %}
+          <tr>
+            <td class="small font-mono">{{ key }}</td>
+            <td class="small text-muted" style="max-width:250px;overflow:hidden">
+              <span title="{{ val | tojson }}">{{ '{' }}…{{ '}' }} ({{ val | length }} keys)</span>
+            </td>
+            {% if user.role in ('superadmin', 'admin') %}
+            <td>
+              <button class="btn btn-xs btn-secondary" onclick="editConfigNested('{{ name }}', '{{ key }}', {{ val | tojson }})">✏️</button>
+            </td>
+            {% endif %}
+          </tr>
+          {% elif val is iterable and val is not string %}
+          <tr>
+            <td class="small font-mono">{{ key }}</td>
+            <td class="small text-muted" style="max-width:250px;overflow:hidden">
+              <span title="{{ val | tojson }}">[…] ({{ val | list | length }} items)</span>
+            </td>
+            {% if user.role in ('superadmin', 'admin') %}
+            <td>
+              <button class="btn btn-xs btn-secondary" onclick="editConfigNested('{{ name }}', '{{ key }}', {{ val | tojson }})">✏️</button>
+            </td>
+            {% endif %}
+          </tr>
+          {% else %}
+          <tr>
+            <td class="small font-mono">{{ key }}</td>
+            <td class="small" id="val-{{ name }}-{{ key }}">{{ val }}</td>
+            {% if user.role in ('superadmin', 'admin') %}
+            <td>
+              <button class="btn btn-xs btn-secondary" onclick="editConfig('{{ name }}', '{{ key }}', {{ val | tojson }})">✏️</button>
+            </td>
+            {% endif %}
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="card mt-4">
+  <div class="card-header">Recent Config Changes</div>
+  <div class="card-body p-0">
+    <table class="table">
+      <thead><tr><th>Time</th><th>User</th><th>Config</th><th>Field</th><th>Old</th><th>New</th></tr></thead>
+      <tbody>
+        {% for h in history %}
+        <tr>
+          <td class="small text-muted">{{ h.applied_at.strftime('%Y-%m-%d %H:%M') if h.applied_at }}</td>
+          <td>{{ h.username }}</td>
+          <td class="small">{{ h.config_file }}</td>
+          <td class="small font-mono">{{ h.field_path }}</td>
+          <td class="small text-danger">{{ h.old_value }}</td>
+          <td class="small text-success">{{ h.new_value }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center text-muted">No changes yet</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Simple Edit Modal -->
+<div id="edit-modal" class="modal" style="display:none">
+  <div class="modal-backdrop" onclick="closeModal()"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      Edit Config Value
+      <button onclick="closeModal()" class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="text-muted small">Config: <strong id="modal-config"></strong> / Field: <strong id="modal-field"></strong></p>
+      <div class="form-group">
+        <label>New Value</label>
+        <input type="text" id="modal-value" class="form-input">
+      </div>
+      <div id="modal-error" class="alert alert-danger" style="display:none"></div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+      <button onclick="saveConfig()" class="btn btn-primary">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- JSON/Nested Edit Modal -->
+<div id="nested-modal" class="modal" style="display:none">
+  <div class="modal-backdrop" onclick="closeNestedModal()"></div>
+  <div class="modal-box" style="max-width:600px">
+    <div class="modal-header">
+      Edit Nested / List Value
+      <button onclick="closeNestedModal()" class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="text-muted small">Config: <strong id="nested-modal-config"></strong> / Field: <strong id="nested-modal-field"></strong></p>
+      <div class="form-group">
+        <label>Value (JSON)</label>
+        <textarea id="nested-modal-value" class="form-input" style="min-height:150px;font-family:monospace;font-size:0.8rem"></textarea>
+      </div>
+      <div id="nested-modal-error" class="alert alert-danger" style="display:none"></div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeNestedModal()" class="btn btn-secondary">Cancel</button>
+      <button onclick="saveNestedConfig()" class="btn btn-primary">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Raw YAML Edit Modal -->
+<div id="raw-modal" class="modal" style="display:none">
+  <div class="modal-backdrop" onclick="closeRawModal()"></div>
+  <div class="modal-box" style="max-width:750px;width:95vw">
+    <div class="modal-header">
+      Edit Raw YAML — <strong id="raw-modal-name"></strong>
+      <button onclick="closeRawModal()" class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <textarea id="raw-modal-content" class="form-input" style="min-height:400px;font-family:monospace;font-size:0.78rem;white-space:pre"></textarea>
+      <div id="raw-modal-error" class="alert alert-danger mt-2" style="display:none"></div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeRawModal()" class="btn btn-secondary">Cancel</button>
+      <button onclick="saveRawYaml()" class="btn btn-primary">Save YAML</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let _editConfig = null, _editField = null;
+let _nestedConfig = null, _nestedField = null;
+let _rawName = null;
+
+// ─── Simple value edit ────────────────────────────────────────────────────────
+function editConfig(config, field, current) {
+  _editConfig = config; _editField = field;
+  document.getElementById('modal-config').textContent = config;
+  document.getElementById('modal-field').textContent = field;
+  document.getElementById('modal-value').value = (current === null || current === undefined) ? '' : String(current);
+  document.getElementById('modal-error').style.display = 'none';
+  document.getElementById('edit-modal').style.display = 'flex';
+  document.getElementById('modal-value').focus();
+}
+
+function closeModal() {
+  document.getElementById('edit-modal').style.display = 'none';
+}
+
+async function saveConfig() {
+  const value = document.getElementById('modal-value').value;
+  const errEl = document.getElementById('modal-error');
+  errEl.style.display = 'none';
+  let parsedValue = value;
+  if (value === 'true') parsedValue = true;
+  else if (value === 'false') parsedValue = false;
+  else if (!isNaN(value) && value !== '') parsedValue = parseFloat(value);
+  const r = await fetch('/api/config/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ config: _editConfig, field: _editField, value: parsedValue }),
+  });
+  const d = await r.json();
+  if (d.error) {
+    errEl.textContent = d.error;
+    errEl.style.display = 'block';
+  } else {
+    closeModal();
+    location.reload();
+  }
+}
+
+// ─── Nested/list edit ─────────────────────────────────────────────────────────
+function editConfigNested(config, field, current) {
+  _nestedConfig = config; _nestedField = field;
+  document.getElementById('nested-modal-config').textContent = config;
+  document.getElementById('nested-modal-field').textContent = field;
+  document.getElementById('nested-modal-value').value = JSON.stringify(current, null, 2);
+  document.getElementById('nested-modal-error').style.display = 'none';
+  document.getElementById('nested-modal').style.display = 'flex';
+  document.getElementById('nested-modal-value').focus();
+}
+
+function closeNestedModal() {
+  document.getElementById('nested-modal').style.display = 'none';
+}
+
+async function saveNestedConfig() {
+  const raw = document.getElementById('nested-modal-value').value;
+  const errEl = document.getElementById('nested-modal-error');
+  errEl.style.display = 'none';
+  let parsedValue;
+  try {
+    parsedValue = JSON.parse(raw);
+  } catch(e) {
+    errEl.textContent = 'Invalid JSON: ' + e.message;
+    errEl.style.display = 'block';
+    return;
+  }
+  const r = await fetch('/api/config/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ config: _nestedConfig, field: _nestedField, value: parsedValue }),
+  });
+  const d = await r.json();
+  if (d.error) {
+    errEl.textContent = d.error;
+    errEl.style.display = 'block';
+  } else {
+    closeNestedModal();
+    location.reload();
+  }
+}
+
+// ─── Raw YAML edit ────────────────────────────────────────────────────────────
+async function openRawModal(name) {
+  _rawName = name;
+  document.getElementById('raw-modal-name').textContent = name;
+  document.getElementById('raw-modal-content').value = 'Loading...';
+  document.getElementById('raw-modal-error').style.display = 'none';
+  document.getElementById('raw-modal').style.display = 'flex';
+  try {
+    const r = await fetch(`/api/config/${encodeURIComponent(name)}/raw`);
+    const d = await r.json();
+    if (d.error) {
+      document.getElementById('raw-modal-content').value = '';
+      document.getElementById('raw-modal-error').textContent = d.error;
+      document.getElementById('raw-modal-error').style.display = 'block';
+    } else {
+      document.getElementById('raw-modal-content').value = d.content;
+    }
+  } catch(e) {
+    document.getElementById('raw-modal-content').value = '';
+    document.getElementById('raw-modal-error').textContent = 'Failed to load: ' + e.message;
+    document.getElementById('raw-modal-error').style.display = 'block';
+  }
+}
+
+function closeRawModal() {
+  document.getElementById('raw-modal').style.display = 'none';
+}
+
+async function saveRawYaml() {
+  const content = document.getElementById('raw-modal-content').value;
+  const errEl = document.getElementById('raw-modal-error');
+  errEl.style.display = 'none';
+  try {
+    const r = await fetch(`/api/config/${encodeURIComponent(_rawName)}/raw`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content })
+    });
+    const d = await r.json();
+    if (d.error) {
+      errEl.textContent = d.error;
+      errEl.style.display = 'block';
+    } else {
+      closeRawModal();
+      location.reload();
+    }
+  } catch(e) {
+    errEl.textContent = 'Request failed: ' + e.message;
+    errEl.style.display = 'block';
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeModal();
+    closeNestedModal();
+    closeRawModal();
+  }
+});
+</script>
+{% endblock %}

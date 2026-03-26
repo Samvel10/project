@@ -1,0 +1,13 @@
+risk:
+  per_trade: 0.01            # 1% per trade
+  max_position_risk: 0.03
+  max_daily_loss: 0.03
+  max_drawdown: 0.15
+
+position_sizing:
+  method: fixed_fractional
+  min_notional: 5
+
+kill_switch:
+  consecutive_losses: 5
+  volatility_spike: true
