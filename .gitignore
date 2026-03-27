@@ -50,3 +50,19 @@ ready_bot/config/proxies.py
 
 # PyArmor
 .pyarmor/
+
+# ML models — too large for GitHub (kept on server only)
+ml/models/*.pkl
+ml/models/*.pt
+ml/models/*.joblib
+
+# Runtime data files (change frequently, not useful in git)
+data/*.jsonl
+data/*.csv
+data/*.json
+data/*.lock
+data/*.pid
+data/room_sizing/
+data/paper_trade_history/
+data/trade_history/
+data/backups/
