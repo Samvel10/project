@@ -466,21 +466,48 @@ function runTab(tab) {
 // ── Open Positions — click row = load THAT symbol chart only ─────────────────
 function loadPositions() {
   const el=document.getElementById('tab-positions');
-  fetch(`/api/account/${curAcc}/positions`).then(r=>r.json()).then(rows=>{
+  Promise.all([
+    fetch(`/api/account/${curAcc}/positions`).then(r=>r.json()).catch(()=>[]),
+    fetch(`/api/account/${curAcc}/orders`).then(r=>r.json()).catch(()=>[])
+  ]).then(([rows, orders])=>{
     const b=document.getElementById('bp');
     if(rows.length){b.textContent=rows.length;b.classList.add('show');}else b.classList.remove('show');
     if(!rows.length){el.innerHTML='<div class="empty-state" style="padding:20px">No open positions</div>';return;}
+
+    // Build SL/TP map per symbol from open conditional orders
+    const slMap={}, tpMap={};
+    const slTypes=new Set(['STOP','STOP_MARKET']);
+    const tpTypes=new Set(['TAKE_PROFIT','TAKE_PROFIT_MARKET']);
+    for(const o of orders){
+      const sym=o.symbol, px=o.stopPrice>0?o.stopPrice:(o.price>0?o.price:0);
+      if(!px) continue;
+      if(slTypes.has(o.type)){
+        if(!slMap[sym]||px<slMap[sym]) slMap[sym]=px;
+      } else if(tpTypes.has(o.type)){
+        if(!tpMap[sym]) tpMap[sym]=[];
+        tpMap[sym].push(px);
+      }
+    }
+
     el.innerHTML=`<table class="table"><thead><tr>
       <th>Symbol</th><th>Side</th><th>Size</th><th>Entry</th><th>Mark</th>
+      <th style="color:#ef4444">SL</th><th style="color:#22c55e">TP</th>
       <th>Unrealized PnL</th><th>ROE%</th><th>Notional</th><th>Lev.</th>
     </tr></thead><tbody>${rows.map(p=>{
       const pc=p.pnl>=0?'up':'dn', sc=p.side==='LONG'?'badge-success':'badge-danger';
+      const sl=slMap[p.symbol];
+      const tps=tpMap[p.symbol]||[];
+      const tpSorted=p.side==='LONG'?[...tps].sort((a,b)=>a-b):[...tps].sort((a,b)=>b-a);
+      const slCell=sl?`<span style="color:#ef4444;font-weight:600">${fp(sl)}</span>`:'<span style="color:#64748b">—</span>';
+      const tpCell=tpSorted.length?tpSorted.map(t=>`<span style="color:#22c55e;font-weight:600">${fp(t)}</span>`).join('<br>'):'<span style="color:#64748b">—</span>';
       return `<tr class="pos-row" title="Click to view chart" onclick="selectSymbol('${p.symbol}')">
         <td><strong>${p.symbol}</strong></td>
         <td><span class="badge ${sc}">${p.side}</span></td>
         <td>${p.size}</td>
         <td>${fp(p.entry_price)}</td>
         <td>${fp(p.mark_price)}</td>
+        <td>${slCell}</td>
+        <td>${tpCell}</td>
         <td class="${pc}">${p.pnl>=0?'+':''}${p.pnl.toFixed(4)}</td>
         <td class="${pc}">${p.pnl_pct>=0?'+':''}${p.pnl_pct.toFixed(2)}%</td>
         <td>${p.notional.toFixed(2)}</td>

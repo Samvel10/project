@@ -4722,6 +4722,16 @@ def place_order(
             ):
                 continue
 
+            # Reverse signal: if account has reverse_signal=true, flip BUY<->SELL
+            _eff_side = side
+            if not reduce_only:
+                try:
+                    _acct_settings = _get_account_settings(idx)
+                    if _acct_settings.get("reverse_signal"):
+                        _eff_side = "SELL" if str(side).upper() == "BUY" else "BUY"
+                except Exception:
+                    pass
+
             used_multi_entry = False
             if (
                 not reduce_only
@@ -4784,7 +4794,7 @@ def place_order(
                             time.sleep(0.5)
                             res = client.place_order(
                                 symbol=symbol,
-                                side=side,
+                                side=_eff_side,
                                 quantity=lvl_qty,
                                 order_type=order_type,
                                 reduce_only=False,
@@ -4993,7 +5003,7 @@ def place_order(
 
                 res = client.place_order(
                     symbol=symbol,
-                    side=side,
+                    side=_eff_side,
                     quantity=adj_qty,
                     order_type=order_type,
                     reduce_only=reduce_only,
